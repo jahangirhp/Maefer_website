@@ -41,7 +41,7 @@ type CapturedFrame = {
 
 const BLUE = [28, 111, 246] as const;
 const RED = [239, 70, 83] as const;
-const QR_DARK = [22, 48, 62] as const;
+const QR_DARK = [112, 225, 248] as const;
 const PARTICLES_DESKTOP = 1400;
 const PARTICLES_MOBILE = 800;
 const SENSOR_PHASE_END = 0.34;
@@ -514,7 +514,7 @@ function drawGrid(
   const top = card.y + card.height * 0.31;
   const bottom = card.y + card.height * 0.82;
   context.lineWidth = 1;
-  context.strokeStyle = `rgba(30, 48, 65, ${0.09 * alpha})`;
+  context.strokeStyle = `rgba(93, 205, 236, ${0.12 * alpha})`;
 
   for (let line = 0; line <= 4; line += 1) {
     const y = lerp(top, bottom, line / 4);
@@ -546,14 +546,14 @@ function drawCard(
 
   context.save();
   context.globalAlpha = alpha;
-  context.shadowColor = "rgba(30, 50, 65, 0.10)";
+  context.shadowColor = "rgba(0, 0, 0, 0.42)";
   context.shadowBlur = 34;
   context.shadowOffsetY = 14;
-  context.fillStyle = "rgba(255, 255, 255, 0.94)";
+  context.fillStyle = "rgba(10, 25, 35, 0.94)";
   roundedRect(context, card.x, card.y, card.width, card.height, 24);
   context.fill();
   context.shadowColor = "transparent";
-  context.strokeStyle = "rgba(26, 52, 72, 0.12)";
+  context.strokeStyle = "rgba(70, 215, 245, 0.22)";
   context.lineWidth = 1;
   context.stroke();
 
@@ -564,7 +564,7 @@ function drawCard(
   context.arc(card.x + padding, titleY, compact ? 5 : 6, 0, Math.PI * 2);
   context.fill();
 
-  context.fillStyle = "#243440";
+  context.fillStyle = "#c8e7ef";
   context.font = `700 ${compact ? 11 : 12}px "DM Sans", sans-serif`;
   context.textBaseline = "middle";
   context.letterSpacing = "0.13em";
@@ -575,7 +575,7 @@ function drawCard(
   );
 
   context.textAlign = "right";
-  context.fillStyle = "#14232c";
+  context.fillStyle = "#f2fbff";
   context.font = `600 ${compact ? 20 : 26}px "Manrope", sans-serif`;
   context.letterSpacing = "0";
   context.fillText(
@@ -585,7 +585,7 @@ function drawCard(
   );
 
   context.textAlign = "left";
-  context.fillStyle = "rgba(37, 57, 70, 0.48)";
+  context.fillStyle = "rgba(161, 205, 218, 0.56)";
   context.font = `600 ${compact ? 8 : 9}px "DM Sans", sans-serif`;
   context.letterSpacing = "0.12em";
   context.fillText(
@@ -640,7 +640,7 @@ function drawQrCard(
   }
   if (transform) {
     const depth = 5 + (1 - transform.perspectiveX) * 18;
-    context.fillStyle = "rgba(184, 198, 205, 0.9)";
+    context.fillStyle = "rgba(1, 7, 12, 0.94)";
     roundedRect(
       context,
       layout.cardX + depth,
@@ -651,10 +651,10 @@ function drawQrCard(
     );
     context.fill();
   }
-  context.shadowColor = "rgba(21, 43, 58, 0.15)";
+  context.shadowColor = "rgba(0, 212, 255, 0.18)";
   context.shadowBlur = width < 760 ? 28 : 48;
   context.shadowOffsetY = width < 760 ? 14 : 22;
-  context.fillStyle = "rgba(255, 255, 255, 0.97)";
+  context.fillStyle = "rgba(8, 22, 31, 0.98)";
   roundedRect(
     context,
     layout.cardX,
@@ -665,12 +665,12 @@ function drawQrCard(
   );
   context.fill();
   context.shadowColor = "transparent";
-  context.strokeStyle = "rgba(31, 60, 75, 0.14)";
+  context.strokeStyle = "rgba(77, 220, 247, 0.3)";
   context.lineWidth = 1;
   context.stroke();
 
   const inset = layout.cardPadding * 0.42;
-  context.strokeStyle = "rgba(28, 111, 246, 0.08)";
+  context.strokeStyle = "rgba(65, 211, 242, 0.18)";
   roundedRect(
     context,
     layout.cardX + inset,
@@ -681,7 +681,7 @@ function drawQrCard(
   );
   context.stroke();
 
-  context.fillStyle = "rgba(104, 226, 158, 0.72)";
+  context.fillStyle = "rgba(86, 230, 250, 0.88)";
   for (const [x, y] of [
     [layout.cardX + inset, layout.cardY + inset],
     [layout.cardX + layout.cardSize - inset, layout.cardY + inset],
@@ -706,13 +706,15 @@ type Point = {
 function getIntegrationLayout(width: number, height: number) {
   const compact = width < 760;
   const partWidth = compact
-    ? Math.min(width * 0.58, 250)
-    : Math.min(width * 0.23, 390);
+    ? Math.min(width * 0.48, 230)
+    : Math.min(width * 0.3, 430);
   const partHeight = compact
-    ? Math.min(height * 0.28, 250)
-    : Math.min(height * 0.38, 350);
-  const partCenterX = compact ? width * 0.62 : width * 0.72;
-  const partBottomY = compact ? height * 0.77 : height * 0.74;
+    ? Math.min(height * 0.25, 230)
+    : Math.min(height * 0.32, 320);
+  // Match the blue printed object in the captured Scene 01 frame. Scene 04
+  // uses that exact frame instead of drawing a second, reconstructed object.
+  const partCenterX = width * 0.5;
+  const partBottomY = compact ? height * 0.74 : height * 0.73;
 
   return {
     compact,
@@ -722,7 +724,9 @@ function getIntegrationLayout(width: number, height: number) {
     partBottomY,
     insertion: {
       x: partCenterX,
-      y: partBottomY - partHeight * 0.64,
+      // The module is installed at the first deposited layer at the base of
+      // the blue print, rather than floating in the middle of the object.
+      y: partBottomY - partHeight * 0.045,
     },
     armBase: {
       x: compact ? width * 0.18 : width * 0.3,
@@ -737,11 +741,21 @@ function getModuleState(
   integrationProgress: number,
 ) {
   const integration = getIntegrationLayout(width, height);
-  const transport = smoothstep(0.16, 0.76, integrationProgress);
-  const scale = lerp(
+  // First miniaturize the QR while it remains stationary, then let the arm
+  // carry it. Keeping these phases separate makes the pickup read physically.
+  const transport = smoothstep(0.3, 0.78, integrationProgress);
+  const insertedScale = lerp(
     1,
-    integration.compact ? 0.18 : 0.14,
-    smoothstep(0.035, 0.34, integrationProgress),
+    integration.compact ? 0.11 : 0.08,
+    smoothstep(0.025, 0.22, integrationProgress),
+  );
+  // Once the arm has placed the module, compress the QR surface into a tiny
+  // embedded marker. This gives the last scene a clear visual endpoint before
+  // the experience returns to the live printing loop.
+  const scale = lerp(
+    insertedScale,
+    integration.compact ? 0.018 : 0.012,
+    smoothstep(0.86, 0.98, integrationProgress),
   );
   const turn = smoothstep(0.025, 0.3, integrationProgress);
 
@@ -877,12 +891,23 @@ function drawArmLink(
 ) {
   const length = Math.hypot(end.x - start.x, end.y - start.y);
   const angle = Math.atan2(end.y - start.y, end.x - start.x);
-  const startHalfWidth = (compact ? 24 : 35) * widthScale;
-  const endHalfWidth = startHalfWidth * 0.76;
+  const startHalfWidth = (compact ? 20 : 30) * widthScale;
+  const endHalfWidth = startHalfWidth * 0.68;
 
   context.save();
   context.translate(start.x, start.y);
   context.rotate(angle);
+
+  // Graphite load-bearing spine visible beneath the floating armor panels.
+  context.fillStyle = "#182731";
+  context.beginPath();
+  context.moveTo(0, -startHalfWidth * 0.68);
+  context.lineTo(length, -endHalfWidth * 0.66);
+  context.lineTo(length, endHalfWidth * 0.66);
+  context.lineTo(0, startHalfWidth * 0.68);
+  context.closePath();
+  context.fill();
+
   const surface = context.createLinearGradient(
     0,
     -startHalfWidth,
@@ -890,46 +915,61 @@ function drawArmLink(
     startHalfWidth,
   );
   surface.addColorStop(0, "#ffffff");
-  surface.addColorStop(0.58, "#f8faf9");
-  surface.addColorStop(1, "#e9eff0");
+  surface.addColorStop(0.42, "#eef5f7");
+  surface.addColorStop(1, "#b9c8ce");
   context.fillStyle = surface;
-  context.strokeStyle = "#c5d0d4";
-  context.lineWidth = compact ? 2.5 : 3.5;
+  context.strokeStyle = "#536873";
+  context.lineWidth = compact ? 1.5 : 2;
   context.beginPath();
-  context.moveTo(0, -startHalfWidth);
-  context.bezierCurveTo(
-    length * 0.28,
-    -startHalfWidth * 1.06,
-    length * 0.73,
-    -endHalfWidth * 0.88,
-    length,
-    -endHalfWidth,
-  );
-  context.quadraticCurveTo(
-    length + endHalfWidth * 0.42,
-    0,
-    length,
-    endHalfWidth,
-  );
-  context.bezierCurveTo(
-    length * 0.7,
-    endHalfWidth * 0.9,
-    length * 0.3,
-    startHalfWidth * 0.93,
-    0,
-    startHalfWidth,
-  );
-  context.quadraticCurveTo(-startHalfWidth * 0.42, 0, 0, -startHalfWidth);
+  context.moveTo(startHalfWidth * 0.45, -startHalfWidth);
+  context.lineTo(length * 0.72, -endHalfWidth);
+  context.lineTo(length - endHalfWidth * 0.4, -endHalfWidth * 0.68);
+  context.lineTo(length - endHalfWidth * 0.18, endHalfWidth * 0.62);
+  context.lineTo(length * 0.68, endHalfWidth);
+  context.lineTo(startHalfWidth * 0.36, startHalfWidth * 0.88);
+  context.lineTo(-startHalfWidth * 0.12, startHalfWidth * 0.34);
+  context.lineTo(0, -startHalfWidth * 0.5);
   context.closePath();
   context.fill();
   context.stroke();
 
-  context.strokeStyle = "rgba(134, 205, 205, 0.58)";
-  context.lineWidth = compact ? 1.5 : 2;
+  // Recessed illuminated energy/data rail.
+  context.shadowColor = "rgba(62, 229, 255, 0.85)";
+  context.shadowBlur = compact ? 7 : 11;
+  context.strokeStyle = "#48dff5";
+  context.lineWidth = compact ? 2 : 3;
   context.beginPath();
-  context.moveTo(length * 0.14, 0);
+  context.moveTo(length * 0.13, startHalfWidth * 0.36);
+  context.lineTo(length * 0.69, endHalfWidth * 0.4);
   context.lineTo(length * 0.86, 0);
   context.stroke();
+  context.shadowColor = "transparent";
+
+  // Panel seam, vents, and fasteners give the arm a manufactured scale.
+  context.strokeStyle = "rgba(31, 57, 70, 0.34)";
+  context.lineWidth = 1;
+  context.beginPath();
+  context.moveTo(length * 0.15, -startHalfWidth * 0.55);
+  context.lineTo(length * 0.65, -endHalfWidth * 0.55);
+  context.stroke();
+  context.fillStyle = "#314753";
+  for (let index = 0; index < 3; index += 1) {
+    roundedRect(
+      context,
+      length * (0.42 + index * 0.075),
+      -endHalfWidth * 0.2,
+      Math.max(3, length * 0.035),
+      compact ? 2 : 3,
+      1.5,
+    );
+    context.fill();
+  }
+  context.fillStyle = "#8af2ff";
+  for (const x of [length * 0.13, length * 0.82]) {
+    context.beginPath();
+    context.arc(x, -startHalfWidth * 0.42, compact ? 1.5 : 2.2, 0, Math.PI * 2);
+    context.fill();
+  }
   context.restore();
 }
 
@@ -947,8 +987,8 @@ function drawSculptedPedestal(
     shoulder.y - base.y,
     shoulder.x - base.x,
   );
-  const baseWidth = compact ? 34 : 50;
-  const shoulderWidth = compact ? 23 : 35;
+  const baseWidth = compact ? 30 : 45;
+  const shoulderWidth = compact ? 21 : 31;
 
   context.save();
   context.translate(base.x, base.y);
@@ -959,12 +999,12 @@ function drawSculptedPedestal(
     0,
     baseWidth,
   );
-  surface.addColorStop(0, "#ffffff");
-  surface.addColorStop(0.55, "#f8faf9");
-  surface.addColorStop(1, "#e5ecee");
+  surface.addColorStop(0, "#fafdff");
+  surface.addColorStop(0.5, "#dce8ec");
+  surface.addColorStop(1, "#91a4ad");
   context.fillStyle = surface;
-  context.strokeStyle = "#c5d0d4";
-  context.lineWidth = compact ? 2.5 : 3.5;
+  context.strokeStyle = "#405762";
+  context.lineWidth = compact ? 1.5 : 2.5;
   context.beginPath();
   context.moveTo(0, -baseWidth);
   context.bezierCurveTo(
@@ -993,6 +1033,30 @@ function drawSculptedPedestal(
   context.closePath();
   context.fill();
   context.stroke();
+
+  context.fillStyle = "#20323c";
+  roundedRect(
+    context,
+    length * 0.13,
+    -baseWidth * 0.43,
+    length * 0.58,
+    baseWidth * 0.22,
+    baseWidth * 0.08,
+  );
+  context.fill();
+  context.shadowColor = "rgba(61, 225, 246, 0.8)";
+  context.shadowBlur = compact ? 6 : 10;
+  context.fillStyle = "#49e2f5";
+  roundedRect(
+    context,
+    length * 0.17,
+    -baseWidth * 0.37,
+    length * 0.48,
+    compact ? 2 : 3,
+    2,
+  );
+  context.fill();
+  context.shadowColor = "transparent";
   context.restore();
 }
 
@@ -1002,37 +1066,59 @@ function drawIndustrialJoint(
   compact: boolean,
   scale = 1,
 ) {
-  const outerRadius = (compact ? 28 : 42) * scale;
-  context.fillStyle = "#f8f9f9";
-  context.strokeStyle = "#c8d4d8";
-  context.lineWidth = compact ? 3 : 4;
+  const outerRadius = (compact ? 25 : 37) * scale;
+  context.save();
+  context.shadowColor = "rgba(19, 36, 46, 0.24)";
+  context.shadowBlur = compact ? 8 : 14;
+  context.fillStyle = "#172832";
   context.beginPath();
   context.arc(point.x, point.y, outerRadius, 0, Math.PI * 2);
   context.fill();
+  context.shadowColor = "transparent";
+  context.strokeStyle = "#526a75";
+  context.lineWidth = compact ? 2 : 3;
   context.stroke();
-  context.fillStyle = "#a7d4d2";
+
+  context.fillStyle = "#dce8eb";
   context.beginPath();
   context.arc(
     point.x,
     point.y,
-    outerRadius * 0.46,
+    outerRadius * 0.72,
     0,
     Math.PI * 2,
   );
   context.fill();
-  context.strokeStyle = "rgba(83, 149, 153, 0.42)";
-  context.lineWidth = compact ? 1.5 : 2;
-  context.stroke();
-  context.fillStyle = "rgba(255, 255, 255, 0.5)";
+
+  context.shadowColor = "rgba(66, 228, 247, 0.95)";
+  context.shadowBlur = compact ? 9 : 15;
+  context.fillStyle = "#44dff4";
   context.beginPath();
-  context.arc(
-    point.x - outerRadius * 0.14,
-    point.y - outerRadius * 0.16,
-    outerRadius * 0.13,
-    0,
-    Math.PI * 2,
-  );
+  context.arc(point.x, point.y, outerRadius * 0.47, 0, Math.PI * 2);
   context.fill();
+  context.shadowColor = "transparent";
+  context.fillStyle = "#20343f";
+  context.beginPath();
+  context.arc(point.x, point.y, outerRadius * 0.27, 0, Math.PI * 2);
+  context.fill();
+  context.strokeStyle = "rgba(255, 255, 255, 0.8)";
+  context.lineWidth = compact ? 1 : 1.5;
+  context.stroke();
+
+  context.fillStyle = "#9df5ff";
+  for (let index = 0; index < 6; index += 1) {
+    const angle = (index / 6) * Math.PI * 2;
+    context.beginPath();
+    context.arc(
+      point.x + Math.cos(angle) * outerRadius * 0.84,
+      point.y + Math.sin(angle) * outerRadius * 0.84,
+      compact ? 1.2 : 1.8,
+      0,
+      Math.PI * 2,
+    );
+    context.fill();
+  }
+  context.restore();
 }
 
 function drawIndustrialBase(
@@ -1040,8 +1126,8 @@ function drawIndustrialBase(
   base: Point,
   compact: boolean,
 ) {
-  const width = compact ? 112 : 174;
-  const height = compact ? 40 : 57;
+  const width = compact ? 102 : 158;
+  const height = compact ? 42 : 62;
   context.fillStyle = "rgba(29, 49, 61, 0.12)";
   context.beginPath();
   context.ellipse(
@@ -1054,7 +1140,15 @@ function drawIndustrialBase(
     Math.PI * 2,
   );
   context.fill();
-  context.fillStyle = "#d1dadd";
+  const lowerBase = context.createLinearGradient(
+    base.x,
+    base.y,
+    base.x,
+    base.y + height,
+  );
+  lowerBase.addColorStop(0, "#526772");
+  lowerBase.addColorStop(1, "#172832");
+  context.fillStyle = lowerBase;
   context.beginPath();
   context.ellipse(
     base.x,
@@ -1066,7 +1160,17 @@ function drawIndustrialBase(
     Math.PI * 2,
   );
   context.fill();
-  context.fillStyle = "#f9faf9";
+  const baseSurface = context.createLinearGradient(
+    base.x - width * 0.5,
+    base.y,
+    base.x + width * 0.5,
+    base.y,
+  );
+  baseSurface.addColorStop(0, "#8fa2aa");
+  baseSurface.addColorStop(0.35, "#f8fcfd");
+  baseSurface.addColorStop(0.72, "#d8e5e9");
+  baseSurface.addColorStop(1, "#71858e");
+  context.fillStyle = baseSurface;
   context.fillRect(
     base.x - width * 0.5,
     base.y - height * 0.1,
@@ -1084,8 +1188,10 @@ function drawIndustrialBase(
     Math.PI * 2,
   );
   context.fill();
-  context.strokeStyle = "#99cccb";
-  context.lineWidth = compact ? 2 : 3;
+  context.shadowColor = "rgba(59, 225, 246, 0.75)";
+  context.shadowBlur = compact ? 7 : 12;
+  context.strokeStyle = "#43dff3";
+  context.lineWidth = compact ? 2 : 2.5;
   context.beginPath();
   context.ellipse(
     base.x,
@@ -1097,6 +1203,30 @@ function drawIndustrialBase(
     Math.PI,
   );
   context.stroke();
+  context.shadowColor = "transparent";
+
+  context.fillStyle = "#213640";
+  roundedRect(
+    context,
+    base.x - width * 0.28,
+    base.y - height * 0.3,
+    width * 0.56,
+    height * 0.18,
+    height * 0.08,
+  );
+  context.fill();
+  context.fillStyle = "#70efff";
+  for (const offset of [-0.17, 0, 0.17]) {
+    context.beginPath();
+    context.arc(
+      base.x + width * offset,
+      base.y - height * 0.21,
+      compact ? 1.4 : 2,
+      0,
+      Math.PI * 2,
+    );
+    context.fill();
+  }
 }
 
 function drawIndustrialGripper(
@@ -1114,14 +1244,23 @@ function drawIndustrialGripper(
       compact ? 34 : 48,
     ) +
     release * (compact ? 13 : 18);
-  const fingerLength = compact ? 34 : 50;
+  const fingerLength = compact ? 38 : 56;
 
   context.save();
   context.translate(target.x, target.y);
   context.rotate(wristAngle);
-  context.fillStyle = "#f8f9f9";
-  context.strokeStyle = "#c6d2d6";
-  context.lineWidth = compact ? 2.5 : 3.5;
+  const wristSurface = context.createLinearGradient(
+    0,
+    -(compact ? 20 : 29),
+    0,
+    compact ? 20 : 29,
+  );
+  wristSurface.addColorStop(0, "#fbfeff");
+  wristSurface.addColorStop(0.55, "#d7e4e8");
+  wristSurface.addColorStop(1, "#718690");
+  context.fillStyle = wristSurface;
+  context.strokeStyle = "#354c58";
+  context.lineWidth = compact ? 1.5 : 2;
   roundedRect(
     context,
     -(compact ? 18 : 27),
@@ -1133,13 +1272,20 @@ function drawIndustrialGripper(
   context.fill();
   context.stroke();
 
-  context.fillStyle = "#a7d4d2";
+  context.fillStyle = "#1c303a";
   context.beginPath();
-  context.arc(0, 0, compact ? 9 : 13, 0, Math.PI * 2);
+  context.arc(0, 0, compact ? 10 : 15, 0, Math.PI * 2);
   context.fill();
-  context.strokeStyle = "#75878e";
+  context.shadowColor = "rgba(63, 226, 246, 0.9)";
+  context.shadowBlur = compact ? 7 : 11;
+  context.strokeStyle = "#47e0f4";
+  context.lineWidth = compact ? 2 : 3;
+  context.stroke();
+  context.shadowColor = "transparent";
+
+  context.strokeStyle = "#243943";
   context.lineCap = "round";
-  context.lineWidth = compact ? 7 : 10;
+  context.lineWidth = compact ? 8 : 11;
   for (const direction of [-1, 1]) {
     context.beginPath();
     context.moveTo(compact ? 14 : 20, direction * jawGap * 0.52);
@@ -1148,11 +1294,23 @@ function drawIndustrialGripper(
       direction * jawGap,
     );
     context.stroke();
-    context.strokeStyle = "#f8f9f9";
-    context.lineWidth = compact ? 5 : 7;
+    context.strokeStyle = "#cddce1";
+    context.lineWidth = compact ? 4 : 6;
     context.stroke();
-    context.strokeStyle = "#75878e";
-    context.lineWidth = compact ? 7 : 10;
+    context.strokeStyle = "#243943";
+    context.lineWidth = compact ? 8 : 11;
+
+    const tipX = (compact ? 14 : 20) + fingerLength;
+    context.fillStyle = "#50e4f5";
+    roundedRect(
+      context,
+      tipX - (compact ? 5 : 7),
+      direction * jawGap - (compact ? 4 : 6),
+      compact ? 10 : 14,
+      compact ? 8 : 12,
+      compact ? 3 : 4,
+    );
+    context.fill();
   }
   context.restore();
 }
@@ -1210,6 +1368,40 @@ function drawFinalPrintNozzle(
   context.restore();
 }
 
+function drawDirectQrIntegration(
+  context: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  integrationProgress: number,
+) {
+  if (integrationProgress <= 0) return;
+  const layout = getIntegrationLayout(width, height);
+  const glowAlpha = smoothstep(0.68, 0.9, integrationProgress);
+  if (glowAlpha <= 0) return;
+
+  context.save();
+  context.globalAlpha = glowAlpha;
+  const glow = context.createRadialGradient(
+    layout.insertion.x,
+    layout.insertion.y,
+    0,
+    layout.insertion.x,
+    layout.insertion.y,
+    layout.partWidth * 0.22,
+  );
+  glow.addColorStop(0, "rgba(75, 226, 247, 0.52)");
+  glow.addColorStop(0.35, "rgba(64, 180, 255, 0.2)");
+  glow.addColorStop(1, "rgba(64, 180, 255, 0)");
+  context.fillStyle = glow;
+  context.fillRect(
+    layout.insertion.x - layout.partWidth * 0.25,
+    layout.insertion.y - layout.partWidth * 0.25,
+    layout.partWidth * 0.5,
+    layout.partWidth * 0.5,
+  );
+  context.restore();
+}
+
 function drawRoboticIntegration(
   context: CanvasRenderingContext2D,
   width: number,
@@ -1219,17 +1411,9 @@ function drawRoboticIntegration(
 ) {
   if (integrationProgress <= 0) return;
   const layout = getIntegrationLayout(width, height);
-  const partAlpha = smoothstep(0.1, 0.38, integrationProgress);
-  drawFinalPrintedPart(context, width, height, partAlpha);
-  drawFinalPrintNozzle(
-    context,
-    width,
-    height,
-    integrationProgress,
-    smoothstep(0.13, 0.36, integrationProgress),
-  );
 
-  const armAlpha = smoothstep(0.12, 0.29, integrationProgress);
+  const armAlpha =
+    1 - smoothstep(0.82, 0.96, integrationProgress);
   if (armAlpha <= 0) return;
   const qrLayout = getQrLayout(width, height);
   const moduleHalfWidth =
@@ -1239,14 +1423,11 @@ function drawRoboticIntegration(
     0.5;
   const moduleHalfHeight =
     qrLayout.cardSize * moduleState.scale * 0.5;
+  const fingerLength = layout.compact ? 38 : 56;
+  const wristToFinger = (layout.compact ? 14 : 20) + fingerLength;
   const retract = smoothstep(0.82, 1, integrationProgress);
-  const entry = smoothstep(0.1, 0.3, integrationProgress);
   const base = {
-    x: lerp(
-      -(layout.compact ? width * 0.22 : width * 0.12),
-      layout.armBase.x,
-      entry,
-    ),
+    x: layout.armBase.x,
     y: layout.armBase.y,
   };
   const shoulder = {
@@ -1255,7 +1436,9 @@ function drawRoboticIntegration(
   };
   const gripperTarget = {
     x: lerp(
-      moduleState.centerX - moduleHalfWidth,
+      // Place the fingertip pads exactly on the module's left edge. The wrist
+      // itself sits one full finger assembly behind the carried QR.
+      moduleState.centerX - moduleHalfWidth - wristToFinger,
       layout.insertion.x - layout.partWidth * 0.38,
       retract,
     ),
@@ -1467,18 +1650,26 @@ function drawScene(
     height * 0.48,
     Math.max(width, height) * 0.7,
   );
-  background.addColorStop(0, "#ffffff");
-  background.addColorStop(1, "#f5f8fa");
+  background.addColorStop(0, "#102b3a");
+  background.addColorStop(0.48, "#081923");
+  background.addColorStop(1, "#030a10");
   context.fillStyle = background;
   context.fillRect(0, 0, width, height);
 
   if (capturedFrame) {
+    const openingFrameAlpha =
+      1 - smoothstep(0.035, 0.22, sensorProgress);
+    const returningFrameAlpha = smoothstep(
+      0.02,
+      0.2,
+      integrationProgress,
+    );
     drawCapturedFrame(
       context,
       capturedFrame,
       width,
       height,
-      1 - smoothstep(0.035, 0.22, sensorProgress),
+      Math.max(openingFrameAlpha, returningFrameAlpha),
     );
   }
 
@@ -1488,12 +1679,11 @@ function drawScene(
   const [temperatureCard, humidityCard] = getCards(width, height);
   drawCard(context, temperatureCard, 0, cardAlpha, width);
   drawCard(context, humidityCard, 1, cardAlpha, width);
-  drawRoboticIntegration(
+  drawDirectQrIntegration(
     context,
     width,
     height,
     integrationProgress,
-    moduleState,
   );
   drawQrCard(
     context,
@@ -1510,7 +1700,7 @@ function drawScene(
   if (sourceAlpha > 0) {
     context.save();
     context.globalAlpha = sourceAlpha * 0.16;
-    context.fillStyle = "#27445a";
+    context.fillStyle = "#36cde9";
     context.filter = "blur(11px)";
     context.beginPath();
     context.ellipse(
@@ -1580,7 +1770,7 @@ function drawScene(
     context.globalAlpha = headerAlpha;
     context.textAlign = "center";
     context.textBaseline = "middle";
-    context.fillStyle = "rgba(24, 44, 58, 0.46)";
+    context.fillStyle = "rgba(168, 224, 238, 0.62)";
     context.font = '700 10px "DM Sans", sans-serif';
     context.letterSpacing = "0.18em";
     context.fillText(
@@ -1711,7 +1901,7 @@ export default function SensorTransformation() {
               ? "02"
               : progress < 0.67
                 ? "03"
-                : "04";
+                : "01";
       }
     };
 
@@ -1720,8 +1910,12 @@ export default function SensorTransformation() {
         cycleTimer = window.setTimeout(() => {
           cycleTimer = null;
           cycleReturning = true;
-          window.scrollTo({ top: 0, behavior: "smooth" });
-        }, 1500);
+          progress = 0;
+          window.scrollTo({ top: 0, behavior: "auto" });
+          resetToLivePrint();
+          updateInterface();
+          scheduleRender();
+        }, 1200);
       } else if (progress < 0.97 && cycleTimer) {
         window.clearTimeout(cycleTimer);
         cycleTimer = null;
@@ -1780,7 +1974,7 @@ export default function SensorTransformation() {
       ref={sectionRef}
       className="sensor-story"
       id="top"
-      aria-label="The live 3D printing scene transforming into sensor diagrams, a QR code, and robotic part integration"
+      aria-label="The live 3D printing scene transforming into sensor diagrams and a QR module that embeds itself in the printed part"
     >
       <div className="sensor-stage">
         <PrintingExperience ref={videoRef} />
@@ -1788,7 +1982,7 @@ export default function SensorTransformation() {
           ref={canvasRef}
           className="sensor-canvas"
           role="img"
-          aria-label="The printed material becomes sensor diagrams and a QR module that a robotic arm places inside the printed part"
+          aria-label="The printed material becomes sensor diagrams and a QR module that flies into the printed part"
         />
         <div ref={cueRef} className="scroll-cue" aria-hidden="true">
           <span />

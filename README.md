@@ -24,11 +24,18 @@ The production output is generated in `dist/`.
 
 Sections 1–3 now share one continuous sticky scene:
 
-- Ninety-second, full-HD cinematic loop rendered in Blender.
-- A custom free-standing modern print head with no visible printer frame or
-  build plate.
+- Ninety-second, 2560 × 1440 cinematic loop rendered in Blender.
+- A minimal dark print stage with the surrounding laboratory machinery and
+  decorative 3D clutter removed.
+- A centered camera composition keeps the printed part roughly 30% smaller
+  inside a persistent 16:9 interface frame.
+- A compact, narrow print head with its complete upper housing and cooling
+  assembly, but without the unwanted red/black cable rods behind the heater.
 - A solid technical-blue, twisted sculptural part printed in discrete layers.
-- The part prints directly on a bright white studio surface with soft shadows.
+- The part prints under restrained cyan and warm lighting, metallic reflections,
+  and cinematic depth of field.
+- A fixed futuristic dark shell remains visible around the centered animation
+  frame throughout every scroll stage.
 - The live print loop freezes on the exact frame visible when scrolling begins.
 - Lightweight HTML video playback with a static reduced-motion fallback.
 
@@ -47,17 +54,14 @@ Section 3 continues from the existing particle system:
 - They resolve into a deterministic 29 × 29 dotted QR-style pattern with
   recognizable finder corners.
 
-Section 4 completes the loop:
+The final transition closes the loop back into Section 1:
 
-- The dotted QR object zooms out, turns in perspective, and becomes a small
-  physical module.
-- A compact white industrial arm with cyan joint caps enters the frame, grips
-  the module, and carries it into a reconstructed version of the printed part.
-- The print head remains active above the blue part during the insertion.
-- The arm releases and retracts while the embedded module receives a green
-  integration glow.
-- After a short hold at the end, the page automatically returns to Section 1
-  and resumes the print loop.
+- The dotted QR object zooms out and becomes a tiny physical module.
+- The exact captured frame from Section 1 returns behind the transition.
+- The QR module flies directly into the blue printed part without a robotic arm.
+- The QR module collapses into a small embedded dot at the insertion point.
+- After a short hold, the canvas clears on the same frame and the live print
+  video resumes, creating a continuous cycle without reversing the scenes.
 
 ## Re-rendering Section 1
 

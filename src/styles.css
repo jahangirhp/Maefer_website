@@ -2,8 +2,8 @@
 
 :root {
   font-family: "DM Sans", sans-serif;
-  color: #12201b;
-  background: #ffffff;
+  color: #dff7ff;
+  background: #03090f;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
 }
@@ -13,7 +13,7 @@
 }
 
 html {
-  background: #ffffff;
+  background: #03090f;
 }
 
 body {
@@ -21,7 +21,7 @@ body {
   min-height: 100vh;
   margin: 0;
   overflow-x: hidden;
-  background: #ffffff;
+  background: #03090f;
 }
 
 a {
@@ -31,7 +31,7 @@ a {
 
 .site-shell {
   min-height: 100vh;
-  background: #ffffff;
+  background: #03090f;
 }
 
 .site-header {
@@ -44,8 +44,8 @@ a {
   display: flex;
   align-items: center;
   padding: 0 clamp(24px, 6vw, 92px);
-  border-bottom: 1px solid rgba(30, 62, 50, 0.1);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(255, 255, 255, 0));
+  border-bottom: 1px solid rgba(66, 211, 240, 0.12);
+  background: linear-gradient(180deg, rgba(3, 10, 16, 0.94), rgba(3, 10, 16, 0));
   pointer-events: none;
 }
 
@@ -65,12 +65,12 @@ a {
   height: 34px;
   display: grid;
   place-items: center;
-  border: 1px solid rgba(104, 226, 158, 0.5);
+  border: 1px solid rgba(72, 224, 247, 0.62);
   border-radius: 50%;
-  color: #68e29e;
+  color: #4ce4f8;
   font-size: 15px;
   letter-spacing: 0;
-  box-shadow: 0 0 22px rgba(104, 226, 158, 0.08);
+  box-shadow: 0 0 24px rgba(58, 218, 248, 0.2);
 }
 
 .printing-hero {
@@ -79,17 +79,29 @@ a {
   height: 100vh;
   min-height: 560px;
   overflow: hidden;
-  background: #ffffff;
+  background: #03090f;
 }
 
 .printing-film-frame {
   position: absolute;
   z-index: 1;
-  inset: 0;
+  top: 50%;
+  left: 50%;
+  width: var(--experience-width);
+  height: calc(var(--experience-width) * 0.5625);
+  transform: translate(-50%, -50%);
   display: grid;
   place-items: center;
   overflow: hidden;
-  background: #ffffff;
+  border-radius: clamp(12px, 1.4vw, 22px);
+  background: #03090f;
+  box-shadow:
+    inset 0 0 0 1px rgba(80, 226, 249, 0.3),
+    inset 0 0 34px rgba(16, 154, 205, 0.08),
+    0 0 0 6px rgba(5, 18, 27, 0.86),
+    0 0 0 7px rgba(72, 213, 239, 0.12),
+    0 28px 90px rgba(0, 0, 0, 0.52),
+    0 0 70px rgba(26, 183, 224, 0.1);
 }
 
 .printing-film {
@@ -98,7 +110,7 @@ a {
   height: 100%;
   object-fit: cover;
   object-position: 50% 52%;
-  background: #ffffff;
+  background: #03090f;
   pointer-events: none;
   user-select: none;
 }
@@ -109,8 +121,8 @@ a {
   inset: 0;
   pointer-events: none;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent 18%),
-    radial-gradient(circle at 50% 50%, transparent 58%, rgba(255, 255, 255, 0.18));
+    linear-gradient(180deg, rgba(3, 10, 16, 0.42), transparent 18%),
+    radial-gradient(circle at 50% 50%, transparent 55%, rgba(0, 4, 8, 0.36));
 }
 
 .scroll-cue {
@@ -121,7 +133,7 @@ a {
   width: 22px;
   height: 36px;
   transform: translateX(-50%);
-  border: 1px solid rgba(31, 67, 88, 0.3);
+  border: 1px solid rgba(77, 221, 246, 0.46);
   border-radius: 13px;
   pointer-events: none;
   transition: opacity 120ms linear;
@@ -135,7 +147,7 @@ a {
   height: 7px;
   transform: translateX(-50%);
   border-radius: 2px;
-  background: #1c6ff6;
+  background: #4ce4f8;
   animation: scroll-cue 1.8s ease-in-out infinite;
 }
 
@@ -143,26 +155,45 @@ a {
   position: relative;
   height: 760vh;
   min-height: 4400px;
-  background: #f7f9fb;
+  background: #03090f;
 }
 
 .sensor-stage {
+  --experience-width: min(72vw, calc(72vh * 1.7778), 1280px);
   position: sticky;
   top: 0;
   width: 100%;
   height: 100vh;
   min-height: 560px;
   overflow: hidden;
-  background: #ffffff;
+  background:
+    radial-gradient(circle at 50% 48%, rgba(24, 117, 151, 0.16), transparent 38%),
+    linear-gradient(rgba(42, 176, 211, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(42, 176, 211, 0.045) 1px, transparent 1px),
+    linear-gradient(145deg, #06121b 0%, #02080e 58%, #071620 100%);
+  background-size: auto, 48px 48px, 48px 48px, auto;
+}
+
+.sensor-stage::before {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  inset: clamp(92px, 11vh, 132px) clamp(18px, 3vw, 52px) clamp(70px, 9vh, 104px);
+  border: 1px solid rgba(70, 214, 240, 0.08);
+  clip-path: polygon(0 0, 18% 0, 18% 1px, 82% 1px, 82% 0, 100% 0, 100% 100%, 82% 100%, 82% calc(100% - 1px), 18% calc(100% - 1px), 18% 100%, 0 100%);
+  pointer-events: none;
 }
 
 .sensor-canvas {
   position: absolute;
   z-index: 2;
-  inset: 0;
+  top: 50%;
+  left: 50%;
   display: block;
-  width: 100%;
-  height: 100%;
+  width: var(--experience-width);
+  height: calc(var(--experience-width) * 0.5625);
+  transform: translate(-50%, -50%);
+  border-radius: clamp(12px, 1.4vw, 22px);
   pointer-events: none;
 }
 
@@ -174,7 +205,7 @@ a {
   display: flex;
   align-items: center;
   gap: 12px;
-  color: rgba(25, 48, 63, 0.4);
+  color: rgba(166, 224, 239, 0.56);
   font-family: "Manrope", sans-serif;
   font-size: 11px;
   font-weight: 700;
@@ -186,7 +217,7 @@ a {
   display: block;
   width: 42px;
   height: 1px;
-  background: linear-gradient(90deg, rgba(28, 111, 246, 0.65), transparent);
+  background: linear-gradient(90deg, rgba(76, 228, 248, 0.8), transparent);
 }
 
 .sensor-end-anchor {
@@ -235,6 +266,7 @@ a {
   }
 
   .sensor-stage {
+    --experience-width: min(92vw, calc(68vh * 1.7778));
     min-height: 520px;
   }
 }
@@ -245,7 +277,7 @@ a {
   }
 
   .printing-film-frame {
-    background: #ffffff url("/media/section-01-poster.png") center / cover no-repeat;
+    background: #03090f url("/media/section-01-poster.png") center / cover no-repeat;
   }
 
   .scroll-cue span {
