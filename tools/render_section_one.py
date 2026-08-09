@@ -9,7 +9,10 @@ from __future__ import annotations
 
 import argparse
 import math
+import shutil
+import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 import bpy
@@ -233,6 +236,28 @@ def set_link_pose(
     obj.keyframe_insert("scale", frame=frame)
 
 
+def set_keyframes_linear(animation_data: bpy.types.AnimData | None) -> None:
+    if not animation_data or not animation_data.action:
+        return
+
+    action = animation_data.action
+    fcurves = getattr(action, "fcurves", None)
+    if fcurves is not None:
+        fcurve_groups = [fcurves]
+    else:
+        fcurve_groups = [
+            channelbag.fcurves
+            for layer in action.layers
+            for strip in layer.strips
+            for channelbag in strip.channelbags
+        ]
+
+    for fcurve_group in fcurve_groups:
+        for fcurve in fcurve_group:
+            for keyframe in fcurve.keyframe_points:
+                keyframe.interpolation = "LINEAR"
+
+
 def build_plate() -> None:
     existing_objects = set(bpy.context.scene.objects)
     graphite = textured_material(
@@ -394,10 +419,7 @@ def make_print_path() -> tuple[bpy.types.Object, list[Vector]]:
     printed_part.data.keyframe_insert("bevel_factor_end", frame=PRINT_END)
     printed_part.data.keyframe_insert("bevel_factor_end", frame=FRAME_END)
 
-    if printed_part.data.animation_data and printed_part.data.animation_data.action:
-        for fcurve in printed_part.data.animation_data.action.fcurves:
-            for keyframe in fcurve.keyframe_points:
-                keyframe.interpolation = "LINEAR"
+    set_keyframes_linear(printed_part.data.animation_data)
 
     return printed_part, points
 
@@ -417,14 +439,6 @@ def build_nozzle(path_points: list[Vector]) -> bpy.types.Object:
         metallic=0.9,
         roughness=0.2,
         coat=0.22,
-    )
-    black_polymer = textured_material(
-        "Technical black polymer",
-        (0.013, 0.018, 0.022, 1.0),
-        metallic=0.12,
-        roughness=0.29,
-        noise_scale=54.0,
-        bump_strength=0.045,
     )
     brass = material(
         "Precision brass",
@@ -511,9 +525,8 @@ def build_nozzle(path_points: list[Vector]) -> bpy.types.Object:
         parent=root,
     )
 
-    # Restore the complete upper hotend body. The red and black heater-cable
-    # rods that previously sat behind the ceramic block are intentionally
-    # omitted; those were the unwanted sticks, not this cooling assembly.
+    # Keep only the functional hotend stack above the nozzle. The previous
+    # boxy shroud made the first-stage head look visually top-heavy.
     for index in range(7):
         z = 0.89 + index * 0.105
         add_cylinder(
@@ -536,69 +549,6 @@ def build_nozzle(path_points: list[Vector]) -> bpy.types.Object:
         parent=root,
     )
 
-    shroud = add_beveled_cube(
-        "Modern print head shroud",
-        (0, 0.035, 1.38),
-        (0.48, 0.34, 0.36),
-        black_polymer,
-        bevel=0.14,
-        segments=8,
-        parent=root,
-    )
-    shroud.rotation_euler.z = math.radians(-2.0)
-    add_beveled_cube(
-        "Anodized face plate",
-        (0, -0.320, 1.38),
-        (0.34, 0.024, 0.24),
-        accent,
-        bevel=0.09,
-        segments=8,
-        parent=root,
-    )
-    add_cylinder(
-        "Cooling intake recess",
-        (0, -0.356, 1.38),
-        0.160,
-        0.026,
-        dark_metal,
-        rotation=(math.pi / 2, 0, 0),
-        bevel=0.009,
-        parent=root,
-    )
-    add_torus(
-        "Cooling intake ring",
-        (0, -0.373, 1.38),
-        0.125,
-        0.017,
-        brushed,
-        rotation=(math.pi / 2, 0, 0),
-        parent=root,
-    )
-    for angle in (0, math.pi / 2, math.pi / 4, -math.pi / 4):
-        bar = add_beveled_cube(
-            "Fan guard",
-            (0, -0.391, 1.38),
-            (0.140, 0.009, 0.014),
-            brushed,
-            bevel=0.009,
-            segments=2,
-            parent=root,
-        )
-        bar.rotation_euler.y = angle
-
-    for x in (-0.29, 0.29):
-        for z in (1.19, 1.57):
-            add_cylinder(
-                "Torx housing fastener",
-                (x, -0.348, z),
-                0.030,
-                0.020,
-                brushed,
-                vertices=24,
-                rotation=(math.pi / 2, 0, 0),
-                bevel=0.006,
-                parent=root,
-            )
     add_cylinder(
         "Filament inlet",
         (0, 0, 1.79),
@@ -630,10 +580,7 @@ def build_nozzle(path_points: list[Vector]) -> bpy.types.Object:
     root.keyframe_insert("location", frame=PRINT_END)
     root.keyframe_insert("location", frame=FRAME_END)
 
-    if root.animation_data and root.animation_data.action:
-        for fcurve in root.animation_data.action.fcurves:
-            for keyframe in fcurve.keyframe_points:
-                keyframe.interpolation = "LINEAR"
+    set_keyframes_linear(root.animation_data)
     return root
 
 
@@ -824,10 +771,7 @@ def build_qr_handling_arm() -> None:
         wrist_outer,
         wrist_light,
     ):
-        if obj.animation_data and obj.animation_data.action:
-            for fcurve in obj.animation_data.action.fcurves:
-                for keyframe in fcurve.keyframe_points:
-                    keyframe.interpolation = "LINEAR"
+        set_keyframes_linear(obj.animation_data)
 
 
 def look_at(obj: bpy.types.Object, point: tuple[float, float, float]) -> None:
@@ -1113,7 +1057,15 @@ def configure_scene() -> None:
     scene = bpy.context.scene
     scene.frame_start = 1
     scene.frame_end = FRAME_END
-    scene.render.engine = "BLENDER_EEVEE_NEXT"
+    engines = {
+        item.identifier
+        for item in bpy.types.RenderSettings.bl_rna.properties["engine"].enum_items
+    }
+    scene.render.engine = (
+        "BLENDER_EEVEE_NEXT"
+        if "BLENDER_EEVEE_NEXT" in engines
+        else "BLENDER_EEVEE"
+    )
     scene.render.resolution_x = 2560
     scene.render.resolution_y = 1440
     scene.render.resolution_percentage = 100
@@ -1152,13 +1104,54 @@ def render_animation() -> None:
     scene = bpy.context.scene
     MEDIA_DIR.mkdir(parents=True, exist_ok=True)
     scene.frame_set(1)
-    scene.render.image_settings.file_format = "FFMPEG"
+    output_path = MEDIA_DIR / "section-01-print.mp4"
+
+    try:
+        scene.render.image_settings.file_format = "FFMPEG"
+    except TypeError:
+        ffmpeg = shutil.which("ffmpeg")
+        if not ffmpeg:
+            raise RuntimeError(
+                "Blender cannot use FFMPEG output directly and ffmpeg is not installed."
+            )
+        with tempfile.TemporaryDirectory(prefix="maefer-section-01-frames-") as tmp:
+            frame_dir = Path(tmp)
+            scene.render.image_settings.file_format = "PNG"
+            scene.render.image_settings.color_mode = "RGB"
+            scene.render.filepath = str(frame_dir / "section-01-####")
+            bpy.ops.render.render(animation=True)
+            subprocess.run(
+                [
+                    ffmpeg,
+                    "-y",
+                    "-framerate",
+                    str(FPS),
+                    "-start_number",
+                    str(scene.frame_start),
+                    "-i",
+                    str(frame_dir / "section-01-%04d.png"),
+                    "-c:v",
+                    "libx264",
+                    "-pix_fmt",
+                    "yuv420p",
+                    "-crf",
+                    "23",
+                    "-preset",
+                    "medium",
+                    "-movflags",
+                    "+faststart",
+                    str(output_path),
+                ],
+                check=True,
+            )
+        return
+
     scene.render.ffmpeg.format = "MPEG4"
     scene.render.ffmpeg.codec = "H264"
     scene.render.ffmpeg.constant_rate_factor = "MEDIUM"
     scene.render.ffmpeg.ffmpeg_preset = "GOOD"
     scene.render.ffmpeg.audio_codec = "NONE"
-    scene.render.filepath = str(MEDIA_DIR / "section-01-print.mp4")
+    scene.render.filepath = str(output_path)
     bpy.ops.render.render(animation=True)
 
 

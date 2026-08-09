@@ -24,11 +24,20 @@ type Particle = {
   curlY: number;
   qrCurlX: number;
   qrCurlY: number;
+  ashAngle: number;
+  ashSpread: number;
+  ashSize: number;
+  ashSpin: number;
   delay: number;
   radius: number;
 };
 
 type SourceSample = {
+  x: number;
+  y: number;
+};
+
+type Point = {
   x: number;
   y: number;
 };
@@ -42,8 +51,10 @@ type CapturedFrame = {
 const BLUE = [28, 111, 246] as const;
 const RED = [239, 70, 83] as const;
 const QR_DARK = [112, 225, 248] as const;
-const PARTICLES_DESKTOP = 1400;
-const PARTICLES_MOBILE = 800;
+const ASH_BLUE = [88, 176, 255] as const;
+const ASH_PALE = [178, 236, 246] as const;
+const PARTICLES_DESKTOP = 1800;
+const PARTICLES_MOBILE = 1000;
 const SENSOR_PHASE_END = 0.34;
 const QR_PHASE_START = 0.39;
 const QR_PHASE_END = 0.63;
@@ -321,12 +332,12 @@ function extractPartSamples(
     }
   }
 
-  // The printed path is the largest connected blue object near the center and
-  // lower part of the live frame. Connected-component selection excludes the
-  // blue nozzle face and the thin blue guide lines on the bed.
+  // The printed material sits close to the nozzle and center of the build
+  // plate. Prefer that region and reject wide, flat blue bed-edge highlights.
   const queueX = new Int32Array(mask.length);
   const queueY = new Int32Array(mask.length);
   let printedComponent: SourceSample[] = [];
+  let printedScore = Number.NEGATIVE_INFINITY;
   const neighbors = [
     [1, 0],
     [-1, 0],
@@ -388,19 +399,35 @@ function extractPartSamples(
       }
 
       const centerX = (minimumX + maximumX) / (2 * gridWidth);
+      const centerY = (minimumY + maximumY) / (2 * gridHeight);
       const bottom = maximumY / gridHeight;
       const componentWidth = (maximumX - minimumX) / gridWidth;
-      const isCentralPrintedPath =
-        centerX > 0.38 &&
-        centerX < 0.62 &&
-        bottom > 0.64 &&
-        componentWidth > 0.035;
+      const componentHeight = (maximumY - minimumY) / gridHeight;
+      const isFlatBedEdge =
+        componentWidth > 0.075 &&
+        componentHeight < 0.04 &&
+        centerY > 0.54;
+      const isPrintedRegion =
+        centerX > 0.36 &&
+        centerX < 0.66 &&
+        centerY > 0.28 &&
+        centerY < 0.66 &&
+        bottom < 0.72 &&
+        !isFlatBedEdge;
+      const nozzleDistance =
+        Math.abs(centerX - 0.535) * 2.8 +
+        Math.abs(centerY - 0.43) * 2.2;
+      const score =
+        component.length *
+          (componentWidth > 0.025 || componentHeight > 0.025 ? 1 : 0.45) -
+        nozzleDistance * 1800;
 
       if (
-        isCentralPrintedPath &&
-        component.length > printedComponent.length
+        isPrintedRegion &&
+        score > printedScore
       ) {
         printedComponent = component;
+        printedScore = score;
       }
     }
   }
@@ -478,8 +505,12 @@ function buildParticles(
         (0.15 + random() * 0.5) *
         Math.min(width * 0.15, 210),
       qrCurlY: (random() - 0.5) * Math.min(height * 0.18, 150),
+      ashAngle: random() * Math.PI * 2,
+      ashSpread: (0.22 + random() * 0.78) * Math.min(width * 0.12, 150),
+      ashSize: 0.55 + random() * 1.65,
+      ashSpin: (random() - 0.5) * Math.PI * 2,
       delay: random() * 0.08,
-      radius: 1.15 + random() * 1.35,
+      radius: 0.58 + random() * 0.72,
     });
   }
 
@@ -579,7 +610,7 @@ function drawCard(
   context.font = `600 ${compact ? 20 : 26}px "Manrope", sans-serif`;
   context.letterSpacing = "0";
   context.fillText(
-    group === 0 ? "214.6 °C" : "42.8 % RH",
+    group === 0 ? "21.6 °C" : "42.8 % RH",
     card.x + card.width - padding,
     titleY,
   );
@@ -698,11 +729,6 @@ function drawQrCard(
   context.restore();
 }
 
-type Point = {
-  x: number;
-  y: number;
-};
-
 function getIntegrationLayout(width: number, height: number) {
   const compact = width < 760;
   const partWidth = compact
@@ -728,10 +754,6 @@ function getIntegrationLayout(width: number, height: number) {
       // the blue print, rather than floating in the middle of the object.
       y: partBottomY - partHeight * 0.045,
     },
-    armBase: {
-      x: compact ? width * 0.18 : width * 0.3,
-      y: compact ? height * 0.84 : height * 0.82,
-    },
   };
 }
 
@@ -740,632 +762,75 @@ function getModuleState(
   height: number,
   integrationProgress: number,
 ) {
-  const integration = getIntegrationLayout(width, height);
-  // First miniaturize the QR while it remains stationary, then let the arm
-  // carry it. Keeping these phases separate makes the pickup read physically.
-  const transport = smoothstep(0.3, 0.78, integrationProgress);
-  const insertedScale = lerp(
-    1,
-    integration.compact ? 0.11 : 0.08,
-    smoothstep(0.025, 0.22, integrationProgress),
-  );
-  // Once the arm has placed the module, compress the QR surface into a tiny
-  // embedded marker. This gives the last scene a clear visual endpoint before
-  // the experience returns to the live printing loop.
-  const scale = lerp(
-    insertedScale,
-    integration.compact ? 0.018 : 0.012,
-    smoothstep(0.86, 0.98, integrationProgress),
-  );
-  const turn = smoothstep(0.025, 0.3, integrationProgress);
+  const dissolve = smoothstep(0.08, 0.42, integrationProgress);
 
   return {
-    centerX: lerp(width * 0.5, integration.insertion.x, transport),
-    centerY:
-      lerp(height * 0.5, integration.insertion.y, transport) -
-      Math.sin(transport * Math.PI) * height * 0.12,
-    scale,
-    rotation: lerp(0, -0.11, turn),
-    perspectiveX: lerp(1, 0.58, turn),
-    shear: lerp(0, 0.15, turn),
+    centerX: width * 0.5,
+    centerY: width < 760 ? height * 0.5 : lerp(height * 0.5, height * 0.48, dissolve),
+    scale: lerp(1, 0.94, dissolve),
+    rotation: 0,
+    perspectiveX: 1,
+    shear: 0,
   };
 }
 
-function drawFinalPrintedPart(
-  context: CanvasRenderingContext2D,
+function getPrintedPartDotTarget(
+  particles: Particle[],
   width: number,
   height: number,
-  alpha: number,
-) {
-  if (alpha <= 0) return;
-  const layout = getIntegrationLayout(width, height);
-  const layers = layout.compact ? 24 : 32;
+): Point {
+  if (!particles.length) {
+    return getIntegrationLayout(width, height).insertion;
+  }
 
-  context.save();
-  context.globalAlpha = alpha;
-  context.fillStyle = "rgba(27, 59, 82, 0.13)";
-  context.filter = "blur(10px)";
-  context.beginPath();
-  context.ellipse(
-    layout.partCenterX,
-    layout.partBottomY + 8,
-    layout.partWidth * 0.48,
-    14,
-    0,
-    0,
-    Math.PI * 2,
-  );
-  context.fill();
-  context.filter = "none";
-  context.lineCap = "round";
+  let centerX = 0;
+  let centerY = 0;
+  for (const particle of particles) {
+    centerX += particle.sourceX;
+    centerY += particle.sourceY;
+  }
+  centerX /= particles.length;
+  centerY /= particles.length;
 
-  for (let layer = 0; layer < layers; layer += 1) {
-    const vertical = layer / Math.max(1, layers - 1);
-    const envelope =
-      0.78 +
-      Math.sin(vertical * Math.PI) * 0.24 -
-      Math.max(0, vertical - 0.82) * 0.44;
-    const y =
-      layout.partBottomY - vertical * layout.partHeight;
-    const centerShift =
-      Math.sin(vertical * Math.PI * 2.15) *
-      layout.partWidth *
-      0.025;
-    const halfWidth = layout.partWidth * 0.5 * envelope;
-    const layerDepth =
-      layout.partHeight * (0.026 + vertical * 0.008);
-    const gradient = context.createLinearGradient(
-      layout.partCenterX - halfWidth,
-      y,
-      layout.partCenterX + halfWidth,
-      y,
-    );
-    gradient.addColorStop(0, "rgba(17, 85, 215, 0.68)");
-    gradient.addColorStop(0.48, "rgba(65, 139, 255, 0.96)");
-    gradient.addColorStop(1, "rgba(18, 93, 226, 0.72)");
-    context.strokeStyle = gradient;
-    context.lineWidth = layout.compact ? 2.1 : 2.7;
-    context.beginPath();
-    for (let point = 0; point <= 72; point += 1) {
-      const angle = (point / 72) * Math.PI * 2;
-      const radius =
-        1 +
-        Math.cos(angle * 3 + vertical * 1.7) * 0.13 +
-        Math.cos(angle * 6 - vertical * 0.8) * 0.025;
-      const pointX =
-        layout.partCenterX +
-        centerShift +
-        Math.cos(angle) * halfWidth * radius;
-      const pointY =
-        y + Math.sin(angle) * layerDepth * radius;
-      if (point === 0) context.moveTo(pointX, pointY);
-      else context.lineTo(pointX, pointY);
+  let target = particles[0];
+  let targetDistance = Number.POSITIVE_INFINITY;
+  for (const particle of particles) {
+    const distance =
+      (particle.sourceX - centerX) ** 2 +
+      (particle.sourceY - centerY) ** 2;
+    if (distance < targetDistance) {
+      target = particle;
+      targetDistance = distance;
     }
-    context.closePath();
-    context.stroke();
   }
-  context.restore();
-}
 
-function solveArm(
-  base: Point,
-  target: Point,
-  firstLength: number,
-  secondLength: number,
-) {
-  const deltaX = target.x - base.x;
-  const deltaY = target.y - base.y;
-  const distance = Math.max(
-    1,
-    Math.min(
-      Math.hypot(deltaX, deltaY),
-      firstLength + secondLength - 1,
-    ),
-  );
-  const direction = Math.atan2(deltaY, deltaX);
-  const shoulderOffset = Math.acos(
-    clamp(
-      (firstLength * firstLength +
-        distance * distance -
-        secondLength * secondLength) /
-        (2 * firstLength * distance),
-      -1,
-      1,
-    ),
-  );
-  const shoulderAngle = direction - shoulderOffset;
-  const elbow = {
-    x: base.x + Math.cos(shoulderAngle) * firstLength,
-    y: base.y + Math.sin(shoulderAngle) * firstLength,
+  return {
+    x: target.sourceX,
+    y: target.sourceY,
   };
-
-  return { elbow };
 }
 
-function drawArmLink(
-  context: CanvasRenderingContext2D,
-  start: Point,
-  end: Point,
-  compact: boolean,
-  widthScale = 1,
-) {
-  const length = Math.hypot(end.x - start.x, end.y - start.y);
-  const angle = Math.atan2(end.y - start.y, end.x - start.x);
-  const startHalfWidth = (compact ? 20 : 30) * widthScale;
-  const endHalfWidth = startHalfWidth * 0.68;
-
-  context.save();
-  context.translate(start.x, start.y);
-  context.rotate(angle);
-
-  // Graphite load-bearing spine visible beneath the floating armor panels.
-  context.fillStyle = "#182731";
-  context.beginPath();
-  context.moveTo(0, -startHalfWidth * 0.68);
-  context.lineTo(length, -endHalfWidth * 0.66);
-  context.lineTo(length, endHalfWidth * 0.66);
-  context.lineTo(0, startHalfWidth * 0.68);
-  context.closePath();
-  context.fill();
-
-  const surface = context.createLinearGradient(
-    0,
-    -startHalfWidth,
-    0,
-    startHalfWidth,
-  );
-  surface.addColorStop(0, "#ffffff");
-  surface.addColorStop(0.42, "#eef5f7");
-  surface.addColorStop(1, "#b9c8ce");
-  context.fillStyle = surface;
-  context.strokeStyle = "#536873";
-  context.lineWidth = compact ? 1.5 : 2;
-  context.beginPath();
-  context.moveTo(startHalfWidth * 0.45, -startHalfWidth);
-  context.lineTo(length * 0.72, -endHalfWidth);
-  context.lineTo(length - endHalfWidth * 0.4, -endHalfWidth * 0.68);
-  context.lineTo(length - endHalfWidth * 0.18, endHalfWidth * 0.62);
-  context.lineTo(length * 0.68, endHalfWidth);
-  context.lineTo(startHalfWidth * 0.36, startHalfWidth * 0.88);
-  context.lineTo(-startHalfWidth * 0.12, startHalfWidth * 0.34);
-  context.lineTo(0, -startHalfWidth * 0.5);
-  context.closePath();
-  context.fill();
-  context.stroke();
-
-  // Recessed illuminated energy/data rail.
-  context.shadowColor = "rgba(62, 229, 255, 0.85)";
-  context.shadowBlur = compact ? 7 : 11;
-  context.strokeStyle = "#48dff5";
-  context.lineWidth = compact ? 2 : 3;
-  context.beginPath();
-  context.moveTo(length * 0.13, startHalfWidth * 0.36);
-  context.lineTo(length * 0.69, endHalfWidth * 0.4);
-  context.lineTo(length * 0.86, 0);
-  context.stroke();
-  context.shadowColor = "transparent";
-
-  // Panel seam, vents, and fasteners give the arm a manufactured scale.
-  context.strokeStyle = "rgba(31, 57, 70, 0.34)";
-  context.lineWidth = 1;
-  context.beginPath();
-  context.moveTo(length * 0.15, -startHalfWidth * 0.55);
-  context.lineTo(length * 0.65, -endHalfWidth * 0.55);
-  context.stroke();
-  context.fillStyle = "#314753";
-  for (let index = 0; index < 3; index += 1) {
-    roundedRect(
-      context,
-      length * (0.42 + index * 0.075),
-      -endHalfWidth * 0.2,
-      Math.max(3, length * 0.035),
-      compact ? 2 : 3,
-      1.5,
-    );
-    context.fill();
-  }
-  context.fillStyle = "#8af2ff";
-  for (const x of [length * 0.13, length * 0.82]) {
-    context.beginPath();
-    context.arc(x, -startHalfWidth * 0.42, compact ? 1.5 : 2.2, 0, Math.PI * 2);
-    context.fill();
-  }
-  context.restore();
-}
-
-function drawSculptedPedestal(
-  context: CanvasRenderingContext2D,
-  base: Point,
-  shoulder: Point,
-  compact: boolean,
-) {
-  const length = Math.hypot(
-    shoulder.x - base.x,
-    shoulder.y - base.y,
-  );
-  const angle = Math.atan2(
-    shoulder.y - base.y,
-    shoulder.x - base.x,
-  );
-  const baseWidth = compact ? 30 : 45;
-  const shoulderWidth = compact ? 21 : 31;
-
-  context.save();
-  context.translate(base.x, base.y);
-  context.rotate(angle);
-  const surface = context.createLinearGradient(
-    0,
-    -baseWidth,
-    0,
-    baseWidth,
-  );
-  surface.addColorStop(0, "#fafdff");
-  surface.addColorStop(0.5, "#dce8ec");
-  surface.addColorStop(1, "#91a4ad");
-  context.fillStyle = surface;
-  context.strokeStyle = "#405762";
-  context.lineWidth = compact ? 1.5 : 2.5;
-  context.beginPath();
-  context.moveTo(0, -baseWidth);
-  context.bezierCurveTo(
-    length * 0.25,
-    -baseWidth * 1.08,
-    length * 0.54,
-    -shoulderWidth * 0.62,
-    length,
-    -shoulderWidth,
-  );
-  context.quadraticCurveTo(
-    length + shoulderWidth * 0.48,
-    0,
-    length,
-    shoulderWidth,
-  );
-  context.bezierCurveTo(
-    length * 0.6,
-    shoulderWidth * 0.72,
-    length * 0.34,
-    baseWidth * 1.1,
-    0,
-    baseWidth,
-  );
-  context.quadraticCurveTo(-baseWidth * 0.35, 0, 0, -baseWidth);
-  context.closePath();
-  context.fill();
-  context.stroke();
-
-  context.fillStyle = "#20323c";
-  roundedRect(
-    context,
-    length * 0.13,
-    -baseWidth * 0.43,
-    length * 0.58,
-    baseWidth * 0.22,
-    baseWidth * 0.08,
-  );
-  context.fill();
-  context.shadowColor = "rgba(61, 225, 246, 0.8)";
-  context.shadowBlur = compact ? 6 : 10;
-  context.fillStyle = "#49e2f5";
-  roundedRect(
-    context,
-    length * 0.17,
-    -baseWidth * 0.37,
-    length * 0.48,
-    compact ? 2 : 3,
-    2,
-  );
-  context.fill();
-  context.shadowColor = "transparent";
-  context.restore();
-}
-
-function drawIndustrialJoint(
-  context: CanvasRenderingContext2D,
-  point: Point,
-  compact: boolean,
-  scale = 1,
-) {
-  const outerRadius = (compact ? 25 : 37) * scale;
-  context.save();
-  context.shadowColor = "rgba(19, 36, 46, 0.24)";
-  context.shadowBlur = compact ? 8 : 14;
-  context.fillStyle = "#172832";
-  context.beginPath();
-  context.arc(point.x, point.y, outerRadius, 0, Math.PI * 2);
-  context.fill();
-  context.shadowColor = "transparent";
-  context.strokeStyle = "#526a75";
-  context.lineWidth = compact ? 2 : 3;
-  context.stroke();
-
-  context.fillStyle = "#dce8eb";
-  context.beginPath();
-  context.arc(
-    point.x,
-    point.y,
-    outerRadius * 0.72,
-    0,
-    Math.PI * 2,
-  );
-  context.fill();
-
-  context.shadowColor = "rgba(66, 228, 247, 0.95)";
-  context.shadowBlur = compact ? 9 : 15;
-  context.fillStyle = "#44dff4";
-  context.beginPath();
-  context.arc(point.x, point.y, outerRadius * 0.47, 0, Math.PI * 2);
-  context.fill();
-  context.shadowColor = "transparent";
-  context.fillStyle = "#20343f";
-  context.beginPath();
-  context.arc(point.x, point.y, outerRadius * 0.27, 0, Math.PI * 2);
-  context.fill();
-  context.strokeStyle = "rgba(255, 255, 255, 0.8)";
-  context.lineWidth = compact ? 1 : 1.5;
-  context.stroke();
-
-  context.fillStyle = "#9df5ff";
-  for (let index = 0; index < 6; index += 1) {
-    const angle = (index / 6) * Math.PI * 2;
-    context.beginPath();
-    context.arc(
-      point.x + Math.cos(angle) * outerRadius * 0.84,
-      point.y + Math.sin(angle) * outerRadius * 0.84,
-      compact ? 1.2 : 1.8,
-      0,
-      Math.PI * 2,
-    );
-    context.fill();
-  }
-  context.restore();
-}
-
-function drawIndustrialBase(
-  context: CanvasRenderingContext2D,
-  base: Point,
-  compact: boolean,
-) {
-  const width = compact ? 102 : 158;
-  const height = compact ? 42 : 62;
-  context.fillStyle = "rgba(29, 49, 61, 0.12)";
-  context.beginPath();
-  context.ellipse(
-    base.x,
-    base.y + height * 0.66,
-    width * 0.58,
-    height * 0.32,
-    0,
-    0,
-    Math.PI * 2,
-  );
-  context.fill();
-  const lowerBase = context.createLinearGradient(
-    base.x,
-    base.y,
-    base.x,
-    base.y + height,
-  );
-  lowerBase.addColorStop(0, "#526772");
-  lowerBase.addColorStop(1, "#172832");
-  context.fillStyle = lowerBase;
-  context.beginPath();
-  context.ellipse(
-    base.x,
-    base.y + height * 0.3,
-    width * 0.52,
-    height * 0.42,
-    0,
-    0,
-    Math.PI * 2,
-  );
-  context.fill();
-  const baseSurface = context.createLinearGradient(
-    base.x - width * 0.5,
-    base.y,
-    base.x + width * 0.5,
-    base.y,
-  );
-  baseSurface.addColorStop(0, "#8fa2aa");
-  baseSurface.addColorStop(0.35, "#f8fcfd");
-  baseSurface.addColorStop(0.72, "#d8e5e9");
-  baseSurface.addColorStop(1, "#71858e");
-  context.fillStyle = baseSurface;
-  context.fillRect(
-    base.x - width * 0.5,
-    base.y - height * 0.1,
-    width,
-    height * 0.42,
-  );
-  context.beginPath();
-  context.ellipse(
-    base.x,
-    base.y - height * 0.1,
-    width * 0.5,
-    height * 0.38,
-    0,
-    0,
-    Math.PI * 2,
-  );
-  context.fill();
-  context.shadowColor = "rgba(59, 225, 246, 0.75)";
-  context.shadowBlur = compact ? 7 : 12;
-  context.strokeStyle = "#43dff3";
-  context.lineWidth = compact ? 2 : 2.5;
-  context.beginPath();
-  context.ellipse(
-    base.x,
-    base.y + height * 0.3,
-    width * 0.5,
-    height * 0.38,
-    0,
-    0,
-    Math.PI,
-  );
-  context.stroke();
-  context.shadowColor = "transparent";
-
-  context.fillStyle = "#213640";
-  roundedRect(
-    context,
-    base.x - width * 0.28,
-    base.y - height * 0.3,
-    width * 0.56,
-    height * 0.18,
-    height * 0.08,
-  );
-  context.fill();
-  context.fillStyle = "#70efff";
-  for (const offset of [-0.17, 0, 0.17]) {
-    context.beginPath();
-    context.arc(
-      base.x + width * offset,
-      base.y - height * 0.21,
-      compact ? 1.4 : 2,
-      0,
-      Math.PI * 2,
-    );
-    context.fill();
-  }
-}
-
-function drawIndustrialGripper(
-  context: CanvasRenderingContext2D,
-  target: Point,
-  wristAngle: number,
-  compact: boolean,
-  moduleHalfHeight: number,
-  integrationProgress: number,
-) {
-  const release = smoothstep(0.82, 0.96, integrationProgress);
-  const jawGap =
-    Math.min(
-      moduleHalfHeight + (compact ? 5 : 8),
-      compact ? 34 : 48,
-    ) +
-    release * (compact ? 13 : 18);
-  const fingerLength = compact ? 38 : 56;
-
-  context.save();
-  context.translate(target.x, target.y);
-  context.rotate(wristAngle);
-  const wristSurface = context.createLinearGradient(
-    0,
-    -(compact ? 20 : 29),
-    0,
-    compact ? 20 : 29,
-  );
-  wristSurface.addColorStop(0, "#fbfeff");
-  wristSurface.addColorStop(0.55, "#d7e4e8");
-  wristSurface.addColorStop(1, "#718690");
-  context.fillStyle = wristSurface;
-  context.strokeStyle = "#354c58";
-  context.lineWidth = compact ? 1.5 : 2;
-  roundedRect(
-    context,
-    -(compact ? 18 : 27),
-    -(compact ? 18 : 26),
-    compact ? 39 : 56,
-    compact ? 36 : 52,
-    compact ? 10 : 14,
-  );
-  context.fill();
-  context.stroke();
-
-  context.fillStyle = "#1c303a";
-  context.beginPath();
-  context.arc(0, 0, compact ? 10 : 15, 0, Math.PI * 2);
-  context.fill();
-  context.shadowColor = "rgba(63, 226, 246, 0.9)";
-  context.shadowBlur = compact ? 7 : 11;
-  context.strokeStyle = "#47e0f4";
-  context.lineWidth = compact ? 2 : 3;
-  context.stroke();
-  context.shadowColor = "transparent";
-
-  context.strokeStyle = "#243943";
-  context.lineCap = "round";
-  context.lineWidth = compact ? 8 : 11;
-  for (const direction of [-1, 1]) {
-    context.beginPath();
-    context.moveTo(compact ? 14 : 20, direction * jawGap * 0.52);
-    context.lineTo(
-      (compact ? 14 : 20) + fingerLength,
-      direction * jawGap,
-    );
-    context.stroke();
-    context.strokeStyle = "#cddce1";
-    context.lineWidth = compact ? 4 : 6;
-    context.stroke();
-    context.strokeStyle = "#243943";
-    context.lineWidth = compact ? 8 : 11;
-
-    const tipX = (compact ? 14 : 20) + fingerLength;
-    context.fillStyle = "#50e4f5";
-    roundedRect(
-      context,
-      tipX - (compact ? 5 : 7),
-      direction * jawGap - (compact ? 4 : 6),
-      compact ? 10 : 14,
-      compact ? 8 : 12,
-      compact ? 3 : 4,
-    );
-    context.fill();
-  }
-  context.restore();
-}
-
-function drawFinalPrintNozzle(
-  context: CanvasRenderingContext2D,
+function getAshDotState(
   width: number,
   height: number,
   integrationProgress: number,
-  alpha: number,
+  target?: Point,
 ) {
-  if (alpha <= 0) return;
   const layout = getIntegrationLayout(width, height);
-  const scale = layout.compact ? 0.72 : 1;
-  const partTop = layout.partBottomY - layout.partHeight;
-  const printMotion = smoothstep(0.16, 0.92, integrationProgress);
-  const headX =
-    layout.partCenterX +
-    Math.sin(printMotion * Math.PI * 2.2) *
-      layout.partWidth *
-      0.14;
-  const tipY = partTop - 1;
+  const finalTarget = target ?? layout.insertion;
+  const gatherProgress = smoothstep(0.42, 0.66, integrationProgress);
+  const transportProgress = smoothstep(0.66, 0.92, integrationProgress);
+  const gatherX = width * 0.5;
+  const gatherY = width < 760 ? height * 0.46 : height * 0.43;
 
-  context.save();
-  context.globalAlpha = alpha;
-  context.translate(headX, tipY);
-  context.scale(scale, scale);
-  context.shadowColor = "rgba(25, 44, 56, 0.16)";
-  context.shadowBlur = 18;
-  context.shadowOffsetY = 8;
-  context.fillStyle = "#47545c";
-  roundedRect(context, -39, -112, 78, 58, 13);
-  context.fill();
-  context.shadowColor = "transparent";
-  context.fillStyle = "#e9eef0";
-  roundedRect(context, -31, -50, 62, 29, 7);
-  context.fill();
-  context.fillStyle = "#24333d";
-  roundedRect(context, -34, -29, 68, 14, 5);
-  context.fill();
-  context.fillStyle = "#4b91eb";
-  roundedRect(context, -30, -104, 60, 39, 8);
-  context.fill();
-  context.strokeStyle = "rgba(255, 255, 255, 0.68)";
-  context.lineWidth = 2;
-  context.stroke();
-  context.fillStyle = "#eca24b";
-  context.beginPath();
-  context.moveTo(-12, -14);
-  context.lineTo(12, -14);
-  context.lineTo(5, 0);
-  context.lineTo(-5, 0);
-  context.closePath();
-  context.fill();
-  context.restore();
+  return {
+    gatherProgress,
+    transportProgress,
+    x: lerp(gatherX, finalTarget.x, transportProgress),
+    y:
+      lerp(gatherY, finalTarget.y, transportProgress) -
+      Math.sin(transportProgress * Math.PI) * height * 0.045,
+  };
 }
 
 function drawDirectQrIntegration(
@@ -1373,20 +838,22 @@ function drawDirectQrIntegration(
   width: number,
   height: number,
   integrationProgress: number,
+  target?: Point,
 ) {
   if (integrationProgress <= 0) return;
   const layout = getIntegrationLayout(width, height);
+  const insertion = target ?? layout.insertion;
   const glowAlpha = smoothstep(0.68, 0.9, integrationProgress);
   if (glowAlpha <= 0) return;
 
   context.save();
   context.globalAlpha = glowAlpha;
   const glow = context.createRadialGradient(
-    layout.insertion.x,
-    layout.insertion.y,
+    insertion.x,
+    insertion.y,
     0,
-    layout.insertion.x,
-    layout.insertion.y,
+    insertion.x,
+    insertion.y,
     layout.partWidth * 0.22,
   );
   glow.addColorStop(0, "rgba(75, 226, 247, 0.52)");
@@ -1394,134 +861,12 @@ function drawDirectQrIntegration(
   glow.addColorStop(1, "rgba(64, 180, 255, 0)");
   context.fillStyle = glow;
   context.fillRect(
-    layout.insertion.x - layout.partWidth * 0.25,
-    layout.insertion.y - layout.partWidth * 0.25,
+    insertion.x - layout.partWidth * 0.25,
+    insertion.y - layout.partWidth * 0.25,
     layout.partWidth * 0.5,
     layout.partWidth * 0.5,
   );
   context.restore();
-}
-
-function drawRoboticIntegration(
-  context: CanvasRenderingContext2D,
-  width: number,
-  height: number,
-  integrationProgress: number,
-  moduleState: ReturnType<typeof getModuleState>,
-) {
-  if (integrationProgress <= 0) return;
-  const layout = getIntegrationLayout(width, height);
-
-  const armAlpha =
-    1 - smoothstep(0.82, 0.96, integrationProgress);
-  if (armAlpha <= 0) return;
-  const qrLayout = getQrLayout(width, height);
-  const moduleHalfWidth =
-    qrLayout.cardSize *
-    moduleState.scale *
-    moduleState.perspectiveX *
-    0.5;
-  const moduleHalfHeight =
-    qrLayout.cardSize * moduleState.scale * 0.5;
-  const fingerLength = layout.compact ? 38 : 56;
-  const wristToFinger = (layout.compact ? 14 : 20) + fingerLength;
-  const retract = smoothstep(0.82, 1, integrationProgress);
-  const base = {
-    x: layout.armBase.x,
-    y: layout.armBase.y,
-  };
-  const shoulder = {
-    x: base.x + (layout.compact ? 34 : 52),
-    y: base.y - (layout.compact ? 112 : 168),
-  };
-  const gripperTarget = {
-    x: lerp(
-      // Place the fingertip pads exactly on the module's left edge. The wrist
-      // itself sits one full finger assembly behind the carried QR.
-      moduleState.centerX - moduleHalfWidth - wristToFinger,
-      layout.insertion.x - layout.partWidth * 0.38,
-      retract,
-    ),
-    y: lerp(
-      moduleState.centerY,
-      layout.insertion.y - layout.partHeight * 0.36,
-      retract,
-    ),
-  };
-  const startDistance = Math.hypot(
-    width * 0.5 - shoulder.x,
-    height * 0.5 - shoulder.y,
-  );
-  const endDistance = Math.hypot(
-    layout.insertion.x - shoulder.x,
-    layout.insertion.y - shoulder.y,
-  );
-  const reach = Math.max(startDistance, endDistance) * 1.035;
-  const firstLength = reach * 0.47;
-  const secondLength = reach * 0.58;
-  const { elbow } = solveArm(
-    shoulder,
-    gripperTarget,
-    firstLength,
-    secondLength,
-  );
-
-  context.save();
-  context.globalAlpha = armAlpha;
-  context.shadowColor = "rgba(31, 52, 65, 0.12)";
-  context.shadowBlur = layout.compact ? 18 : 30;
-  context.shadowOffsetY = 12;
-  drawIndustrialBase(context, base, layout.compact);
-  drawSculptedPedestal(context, base, shoulder, layout.compact);
-  drawArmLink(context, shoulder, elbow, layout.compact, 1);
-  drawArmLink(
-    context,
-    elbow,
-    gripperTarget,
-    layout.compact,
-    0.76,
-  );
-  context.shadowColor = "transparent";
-  drawIndustrialJoint(context, shoulder, layout.compact, 1.04);
-  drawIndustrialJoint(context, elbow, layout.compact, 0.88);
-
-  const wristAngle = Math.atan2(
-    gripperTarget.y - elbow.y,
-    gripperTarget.x - elbow.x,
-  );
-  drawIndustrialGripper(
-    context,
-    gripperTarget,
-    wristAngle,
-    layout.compact,
-    moduleHalfHeight,
-    integrationProgress,
-  );
-  context.restore();
-
-  const glowAlpha = smoothstep(0.72, 0.9, integrationProgress);
-  if (glowAlpha > 0) {
-    context.save();
-    context.globalAlpha = glowAlpha;
-    const glow = context.createRadialGradient(
-      layout.insertion.x,
-      layout.insertion.y,
-      0,
-      layout.insertion.x,
-      layout.insertion.y,
-      layout.partWidth * 0.22,
-    );
-    glow.addColorStop(0, "rgba(104, 226, 158, 0.42)");
-    glow.addColorStop(1, "rgba(104, 226, 158, 0)");
-    context.fillStyle = glow;
-    context.fillRect(
-      layout.insertion.x - layout.partWidth * 0.25,
-      layout.insertion.y - layout.partWidth * 0.25,
-      layout.partWidth * 0.5,
-      layout.partWidth * 0.5,
-    );
-    context.restore();
-  }
 }
 
 function particlePosition(
@@ -1531,6 +876,7 @@ function particlePosition(
   integrationProgress: number,
   width: number,
   height: number,
+  dotTarget?: Point,
 ) {
   const travelProgress = smoothstep(
     0.16 + particle.delay,
@@ -1575,15 +921,53 @@ function particlePosition(
   const cosine = Math.cos(moduleState.rotation);
   const sine = Math.sin(moduleState.rotation);
 
+  const transformedQrX =
+    moduleState.centerX +
+    localX * cosine -
+    localY * sine;
+  const transformedQrY =
+    moduleState.centerY +
+    localX * sine +
+    localY * cosine;
+
+  if (integrationProgress <= 0) {
+    return {
+      x: transformedQrX,
+      y: transformedQrY,
+    };
+  }
+
+  const ashRelease = smoothstep(
+    0.08 + particle.delay * 0.45,
+    0.44 + particle.delay * 0.45,
+    integrationProgress,
+  );
+  const dotState = getAshDotState(width, height, integrationProgress, dotTarget);
+  const ashGather = smoothstep(
+    0.4 + particle.delay * 0.25,
+    0.68,
+    integrationProgress,
+  );
+  const ashFloat = Math.sin(ashRelease * Math.PI) * (1 - ashGather);
+  const turbulence =
+    Math.sin(
+      integrationProgress * Math.PI * 7 +
+        particle.ashSpin +
+        particle.delay * 11,
+    ) *
+    Math.min(width * 0.018, 22);
+  const ashX =
+    transformedQrX +
+    Math.cos(particle.ashAngle) * particle.ashSpread * ashRelease +
+    turbulence;
+  const ashY =
+    transformedQrY +
+    Math.sin(particle.ashAngle) * particle.ashSpread * 0.52 * ashRelease -
+    ashFloat * Math.min(height * 0.11, 86);
+
   return {
-    x:
-      moduleState.centerX +
-      localX * cosine -
-      localY * sine,
-    y:
-      moduleState.centerY +
-      localX * sine +
-      localY * cosine,
+    x: lerp(ashX, dotState.x, ashGather),
+    y: lerp(ashY, dotState.y, ashGather),
   };
 }
 
@@ -1605,6 +989,125 @@ function drawCapturedFrame(
     placement.width,
     placement.height,
   );
+  context.restore();
+}
+
+function drawAshParticles(
+  context: CanvasRenderingContext2D,
+  particles: Particle[],
+  sensorProgress: number,
+  qrProgress: number,
+  integrationProgress: number,
+  width: number,
+  height: number,
+  alpha: number,
+) {
+  if (alpha <= 0.01) return;
+
+  const dotTarget = getPrintedPartDotTarget(particles, width, height);
+  const paleMix =
+    0.3 +
+    0.45 * smoothstep(0.16, 0.54, sensorProgress) +
+    0.25 * smoothstep(0.12, 0.5, integrationProgress);
+  const red = Math.round(lerp(ASH_BLUE[0], ASH_PALE[0], paleMix));
+  const green = Math.round(lerp(ASH_BLUE[1], ASH_PALE[1], paleMix));
+  const blue = Math.round(lerp(ASH_BLUE[2], ASH_PALE[2], paleMix));
+  const sizeMultiplier =
+    lerp(0.75, 1.35, smoothstep(0.08, 0.32, sensorProgress)) *
+    (1 - smoothstep(0.88, 1, integrationProgress) * 0.42);
+  const stride = Math.max(1, Math.ceil(particles.length / (width < 760 ? 820 : 1400)));
+  const dotState = getAshDotState(
+    width,
+    height,
+    integrationProgress,
+    dotTarget,
+  );
+  const cloudAlpha =
+    alpha * (1 - smoothstep(0.62, 0.76, integrationProgress));
+  const singleDotAlpha =
+    alpha *
+    smoothstep(0.56, 0.72, integrationProgress) *
+    (1 - smoothstep(0.94, 1, integrationProgress));
+
+  context.save();
+  context.globalCompositeOperation = "lighter";
+  if (cloudAlpha > 0.01) {
+    context.globalAlpha = cloudAlpha * 0.9;
+    context.fillStyle = `rgb(${red}, ${green}, ${blue})`;
+    context.beginPath();
+
+    for (let index = 0; index < particles.length; index += stride) {
+      const particle = particles[index];
+      const position = particlePosition(
+        particle,
+        sensorProgress,
+        qrProgress,
+        integrationProgress,
+        width,
+        height,
+        dotTarget,
+      );
+      const size = particle.ashSize * sizeMultiplier;
+      context.rect(
+        position.x - size * 0.5,
+        position.y - size * 0.28,
+        size,
+        size * 0.56,
+      );
+    }
+    context.fill();
+
+    context.globalAlpha = cloudAlpha * 0.38;
+    context.fillStyle = `rgb(${ASH_PALE.join(",")})`;
+    context.beginPath();
+    for (let index = 1; index < particles.length; index += stride * 3) {
+      const particle = particles[index];
+      const position = particlePosition(
+        particle,
+        sensorProgress,
+        qrProgress,
+        integrationProgress,
+        width,
+        height,
+        dotTarget,
+      );
+      const size = particle.ashSize * sizeMultiplier * 1.45;
+      context.rect(
+        position.x - size * 0.5,
+        position.y - size * 0.18,
+        size,
+        size * 0.36,
+      );
+    }
+    context.fill();
+  }
+
+  if (singleDotAlpha > 0.01) {
+    const radius =
+      lerp(width < 760 ? 4.5 : 5.5, width < 760 ? 2.2 : 3.2, dotState.transportProgress);
+    const glow = context.createRadialGradient(
+      dotState.x,
+      dotState.y,
+      0,
+      dotState.x,
+      dotState.y,
+      radius * 5.5,
+    );
+    glow.addColorStop(0, `rgba(${ASH_PALE.join(",")}, ${singleDotAlpha})`);
+    glow.addColorStop(0.32, `rgba(${ASH_BLUE.join(",")}, ${singleDotAlpha * 0.55})`);
+    glow.addColorStop(1, "rgba(88, 176, 255, 0)");
+    context.globalAlpha = 1;
+    context.fillStyle = glow;
+    context.beginPath();
+    context.arc(dotState.x, dotState.y, radius * 5.5, 0, Math.PI * 2);
+    context.fill();
+
+    context.fillStyle = `rgba(${ASH_PALE.join(",")}, ${singleDotAlpha})`;
+    context.beginPath();
+    context.arc(dotState.x, dotState.y, radius, 0, Math.PI * 2);
+    context.fill();
+  }
+
   context.restore();
 }
 
@@ -1641,6 +1144,7 @@ function drawScene(
     height,
     integrationProgress,
   );
+  const printedPartDotTarget = getPrintedPartDotTarget(particles, width, height);
 
   const background = context.createRadialGradient(
     width * 0.5,
@@ -1684,30 +1188,47 @@ function drawScene(
     width,
     height,
     integrationProgress,
+    printedPartDotTarget,
   );
   drawQrCard(
     context,
     width,
     height,
     smoothstep(0.24, 0.66, qrProgress) *
-      (1 - smoothstep(0.84, 0.98, integrationProgress)),
+      (1 - smoothstep(0.08, 0.42, integrationProgress)),
     moduleState,
   );
 
   const sourceAlpha =
     smoothstep(0.04, 0.15, sensorProgress) *
     (1 - smoothstep(0.2, 0.43, sensorProgress));
-  if (sourceAlpha > 0) {
+  if (sourceAlpha > 0 && particles.length) {
+    let sourceX = 0;
+    let sourceY = 0;
+    let minimumX = Number.POSITIVE_INFINITY;
+    let maximumX = Number.NEGATIVE_INFINITY;
+    let minimumY = Number.POSITIVE_INFINITY;
+    let maximumY = Number.NEGATIVE_INFINITY;
+
+    for (const particle of particles) {
+      sourceX += particle.sourceX;
+      sourceY += particle.sourceY;
+      minimumX = Math.min(minimumX, particle.sourceX);
+      maximumX = Math.max(maximumX, particle.sourceX);
+      minimumY = Math.min(minimumY, particle.sourceY);
+      maximumY = Math.max(maximumY, particle.sourceY);
+    }
+
     context.save();
     context.globalAlpha = sourceAlpha * 0.16;
     context.fillStyle = "#36cde9";
-    context.filter = "blur(11px)";
+    context.filter = "blur(7px)";
     context.beginPath();
     context.ellipse(
-      width * 0.5,
-      height * 0.71,
-      Math.min(width * 0.14, 190),
-      18,
+      sourceX / particles.length,
+      sourceY / particles.length,
+      clamp((maximumX - minimumX) * 0.42, 10, Math.min(width * 0.12, 130)),
+      clamp((maximumY - minimumY) * 0.46, 7, 24),
       0,
       0,
       Math.PI * 2,
@@ -1721,7 +1242,30 @@ function drawScene(
   const particleAlpha =
     smoothstep(0.025, 0.14, sensorProgress) *
     (0.88 + smoothstep(0.68, 0.84, sensorProgress) * 0.12) *
-    (1 - smoothstep(0.84, 0.98, integrationProgress) * 0.78);
+    (1 - smoothstep(0.9, 1, integrationProgress));
+  const openingAshAlpha =
+    particleAlpha *
+    (1 - smoothstep(0.44, 0.7, sensorProgress)) *
+    (1 - smoothstep(0.05, 0.35, qrProgress));
+  const qrAshAlpha =
+    particleAlpha *
+    smoothstep(0.08, 0.34, integrationProgress) *
+    (1 - smoothstep(0.9, 1, integrationProgress));
+  const dotAlpha =
+    particleAlpha *
+    smoothstep(0.32, 0.72, sensorProgress) *
+    (1 - smoothstep(0.04, 0.22, integrationProgress));
+
+  drawAshParticles(
+    context,
+    particles,
+    sensorProgress,
+    qrProgress,
+    integrationProgress,
+    width,
+    height,
+    Math.max(openingAshAlpha, qrAshAlpha),
+  );
 
   for (const group of [0, 1] as const) {
     const targetColor = group === 0 ? RED : BLUE;
@@ -1737,7 +1281,8 @@ function drawScene(
     const blue = Math.round(
       lerp(chartBlue, QR_DARK[2], qrColorProgress),
     );
-    context.fillStyle = `rgba(${red}, ${green}, ${blue}, ${particleAlpha})`;
+    if (dotAlpha <= 0.01) continue;
+    context.fillStyle = `rgba(${red}, ${green}, ${blue}, ${dotAlpha})`;
     context.beginPath();
 
     for (const particle of particles) {
