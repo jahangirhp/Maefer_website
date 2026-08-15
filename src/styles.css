@@ -346,7 +346,7 @@ a {
 
   .sensor-stage {
     --experience-width: min(88vw, 440px);
-    --experience-height: min(76dvh, calc(var(--experience-width) * 1.55));
+    --experience-height: min(84dvh, calc(var(--experience-width) * 1.55));
     min-height: 520px;
   }
 
