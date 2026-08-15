@@ -288,7 +288,6 @@ function PrintCard({ job, onOpen }: { job: PrintJob; onOpen: () => void }) {
         {job.previewUrl
           ? <img src={job.previewUrl} alt="" />
           : <span className="preview-placeholder" aria-hidden="true">M</span>}
-        <span className="print-job-open">View data <b>↗</b></span>
       </span>
       <span className="print-job-copy">
         <strong>{job.metadata.file_name || "Unnamed print"}</strong>
