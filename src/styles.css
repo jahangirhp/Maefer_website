@@ -324,10 +324,16 @@ a {
   }
 
   .printing-film-frame::before {
-    inset: 0;
-    background-size: contain;
+    inset: -10%;
+    background-size: cover;
     background-repeat: no-repeat;
+    filter: blur(14px) brightness(0.48) saturate(1.2);
+    opacity: 0.72;
     animation-name: opening-poster-motion-mobile;
+  }
+
+  .printing-film-frame.is-video-ready::before {
+    opacity: 0.58;
   }
 
   .scroll-cue {
@@ -340,7 +346,7 @@ a {
 
   .sensor-stage {
     --experience-width: min(88vw, 440px);
-    --experience-height: min(70vh, calc(var(--experience-width) * 1.3333));
+    --experience-height: min(76dvh, calc(var(--experience-width) * 1.55));
     min-height: 520px;
   }
 
