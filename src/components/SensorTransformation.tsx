@@ -1340,6 +1340,7 @@ export default function SensorTransformation() {
     const video = videoRef.current;
     if (!section || !canvas || !video) return;
     const filmFrame = video.closest<HTMLElement>(".printing-film-frame");
+    canvas.style.visibility = "hidden";
 
     let particles: Particle[] = [];
     let deviceScale = 1;
@@ -1446,13 +1447,18 @@ export default function SensorTransformation() {
         width: snapshot.width,
         height: snapshot.height,
       };
+      canvas.style.visibility = "visible";
       sourceSamples = extractPartSamples(snapshot, PARTICLES_DESKTOP);
       video.pause();
       resize();
     };
 
     const resetToLivePrint = () => {
-      if (!capturedFrame) return;
+      canvas.style.visibility = "hidden";
+      if (!capturedFrame) {
+        startLivePrint();
+        return;
+      }
       capturedFrame = null;
       sourceSamples = [];
       particles = buildParticles(
@@ -1529,9 +1535,15 @@ export default function SensorTransformation() {
     const onVideoPlaying = () => {
       filmFrame?.classList.remove("is-awaiting-playback");
     };
+    const onVideoFrameReady = () => {
+      if (video.currentTime > 0.02) {
+        filmFrame?.classList.add("is-video-ready");
+      }
+    };
     video.addEventListener("loadeddata", onVideoReady);
     video.addEventListener("canplay", startLivePrint);
     video.addEventListener("playing", onVideoPlaying);
+    video.addEventListener("timeupdate", onVideoFrameReady);
 
     const onPageShow = () => startLivePrint();
     const onFirstInteraction = () => startLivePrint();
@@ -1618,6 +1630,7 @@ export default function SensorTransformation() {
       video.removeEventListener("loadeddata", onVideoReady);
       video.removeEventListener("canplay", startLivePrint);
       video.removeEventListener("playing", onVideoPlaying);
+      video.removeEventListener("timeupdate", onVideoFrameReady);
       window.removeEventListener("pageshow", onPageShow);
       window.removeEventListener("pointerdown", onFirstInteraction);
       window.removeEventListener("touchstart", onFirstInteraction);
@@ -1632,7 +1645,9 @@ export default function SensorTransformation() {
       cycleTween?.kill();
       window.history.scrollRestoration = previousScrollRestoration;
       gsap.set(canvas, { clearProps: "opacity" });
+      canvas.style.visibility = "";
       filmFrame?.classList.remove("is-awaiting-playback");
+      filmFrame?.classList.remove("is-video-ready");
       void video.play().catch(() => undefined);
     };
   }, []);
