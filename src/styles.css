@@ -313,9 +313,21 @@ a {
   }
 
   .printing-film {
-    width: auto;
-    min-width: 100%;
-    object-position: 56% 50%;
+    width: 100%;
+    min-width: 0;
+    object-fit: contain;
+    object-position: center;
+  }
+
+  .printing-film-frame {
+    background: #03090f;
+  }
+
+  .printing-film-frame::before {
+    inset: 0;
+    background-size: contain;
+    background-repeat: no-repeat;
+    animation-name: opening-poster-motion-mobile;
   }
 
   .scroll-cue {
@@ -338,8 +350,13 @@ a {
 }
 
 @keyframes opening-motion-fallback {
-  from { transform: scale(1.01) translate3d(-1%, 0.5%, 0); }
-  to { transform: scale(1.12) translate3d(2%, -1.5%, 0); }
+  from { transform: scale(1) translate3d(-0.25%, 0.15%, 0); }
+  to { transform: scale(1.025) translate3d(0.4%, -0.3%, 0); }
+}
+
+@keyframes opening-poster-motion-mobile {
+  from { transform: scale(1) translate3d(-0.2%, 0.1%, 0); }
+  to { transform: scale(1.02) translate3d(0.3%, -0.2%, 0); }
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -269,12 +269,14 @@ function chartTarget(
   };
 }
 
-function getCoverPlacement(
+function getMediaPlacement(
   frame: CapturedFrame,
   width: number,
   height: number,
 ) {
-  const scale = Math.max(width / frame.width, height / frame.height);
+  const scale = height > width
+    ? Math.min(width / frame.width, height / frame.height)
+    : Math.max(width / frame.width, height / frame.height);
   const renderedWidth = frame.width * scale;
   const renderedHeight = frame.height * scale;
 
@@ -453,7 +455,7 @@ function buildParticles(
   const [temperatureCard, humidityCard] = getCards(width, height);
   const particles: Particle[] = [];
   const placement = capturedFrame
-    ? getCoverPlacement(capturedFrame, width, height)
+    ? getMediaPlacement(capturedFrame, width, height)
     : null;
   const shapeCenterX = width * 0.5;
   const shapeTop = height * 0.33;
@@ -979,7 +981,7 @@ function drawCapturedFrame(
   alpha: number,
 ) {
   if (alpha <= 0) return;
-  const placement = getCoverPlacement(frame, width, height);
+  const placement = getMediaPlacement(frame, width, height);
   context.save();
   context.globalAlpha = alpha;
   context.drawImage(
