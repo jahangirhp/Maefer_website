@@ -1349,6 +1349,13 @@ export default function SensorTransformation() {
     let cycleTimer: number | null = null;
     let cycleReturning = false;
 
+    const startLivePrint = () => {
+      video.defaultMuted = true;
+      video.muted = true;
+      video.playsInline = true;
+      void video.play().catch(() => undefined);
+    };
+
     const render = () => {
       animationFrame = 0;
       drawScene(
@@ -1469,9 +1476,21 @@ export default function SensorTransformation() {
     };
 
     const onVideoReady = () => {
+      startLivePrint();
       if (progress > 0.018) captureLivePrint();
     };
     video.addEventListener("loadeddata", onVideoReady);
+    video.addEventListener("canplay", startLivePrint);
+
+    const onPageShow = () => startLivePrint();
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible" && !capturedFrame) {
+        startLivePrint();
+      }
+    };
+    window.addEventListener("pageshow", onPageShow);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    startLivePrint();
 
     const reducedMotion = window.matchMedia(
       "(prefers-reduced-motion: reduce)",
@@ -1507,6 +1526,9 @@ export default function SensorTransformation() {
     return () => {
       trigger?.kill();
       video.removeEventListener("loadeddata", onVideoReady);
+      video.removeEventListener("canplay", startLivePrint);
+      window.removeEventListener("pageshow", onPageShow);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
       window.removeEventListener("resize", resize);
       if (animationFrame) window.cancelAnimationFrame(animationFrame);
       if (cycleTimer) window.clearTimeout(cycleTimer);
