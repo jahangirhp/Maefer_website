@@ -1349,10 +1349,13 @@ export default function SensorTransformation() {
     let sourceSamples: SourceSample[] = [];
     let cycleTimer: number | null = null;
     let playbackCheckTimer: number | null = null;
+    let playbackWatchTimer: number | null = null;
+    let fallbackFrameTimer: number | null = null;
+    let initialScrollFrame = 0;
+    let cycleTween: gsap.core.Tween | null = null;
     let cycleReturning = false;
 
-    const startLivePrint = () => {
-      if (capturedFrame) return;
+    const requestLivePlayback = () => {
       video.defaultMuted = true;
       video.muted = true;
       video.playsInline = true;
@@ -1372,6 +1375,11 @@ export default function SensorTransformation() {
       }).catch(() => {
         filmFrame?.classList.add("is-awaiting-playback");
       });
+    };
+
+    const startLivePrint = () => {
+      if (capturedFrame) return;
+      requestLivePlayback();
     };
 
     const render = () => {
@@ -1480,15 +1488,36 @@ export default function SensorTransformation() {
         cycleTimer = window.setTimeout(() => {
           cycleTimer = null;
           cycleReturning = true;
-          progress = 0;
-          window.scrollTo({ top: 0, behavior: "auto" });
-          resetToLivePrint();
-          updateInterface();
-          scheduleRender();
-        }, 1200);
-      } else if (progress < 0.97 && cycleTimer) {
-        window.clearTimeout(cycleTimer);
-        cycleTimer = null;
+          video.currentTime = 0;
+          requestLivePlayback();
+          cycleTween = gsap.to(canvas, {
+            opacity: 0,
+            duration: 1.1,
+            ease: "power2.inOut",
+            onComplete: () => {
+              cycleTween = null;
+              progress = 0;
+              window.scrollTo({ top: 0, behavior: "auto" });
+              resetToLivePrint();
+              updateInterface();
+              scheduleRender();
+              gsap.set(canvas, { opacity: 1 });
+              ScrollTrigger.update();
+              cycleReturning = false;
+            },
+          });
+        }, 900);
+      } else if (progress < 0.97) {
+        if (cycleTimer) {
+          window.clearTimeout(cycleTimer);
+          cycleTimer = null;
+        }
+        if (cycleTween) {
+          cycleTween.kill();
+          cycleTween = null;
+          gsap.set(canvas, { opacity: 1 });
+          cycleReturning = false;
+        }
       }
       if (progress <= 0.006) cycleReturning = false;
     };
@@ -1515,6 +1544,42 @@ export default function SensorTransformation() {
     window.addEventListener("pointerdown", onFirstInteraction, { passive: true });
     window.addEventListener("touchstart", onFirstInteraction, { passive: true });
     document.addEventListener("visibilitychange", onVisibilityChange);
+
+    const previousScrollRestoration = window.history.scrollRestoration;
+    window.history.scrollRestoration = "manual";
+    window.scrollTo({ top: 0, behavior: "auto" });
+    initialScrollFrame = window.requestAnimationFrame(() => {
+      window.scrollTo({ top: 0, behavior: "auto" });
+      ScrollTrigger.refresh();
+      startLivePrint();
+    });
+
+    let lastPlaybackTime = video.currentTime;
+    playbackWatchTimer = window.setInterval(() => {
+      if (capturedFrame || progress > 0.006 || document.visibilityState !== "visible") {
+        lastPlaybackTime = video.currentTime;
+        return;
+      }
+      const isAdvancing = !video.paused && video.currentTime > lastPlaybackTime + 0.02;
+      filmFrame?.classList.toggle("is-awaiting-playback", !isAdvancing);
+      if (!isAdvancing) startLivePrint();
+      lastPlaybackTime = video.currentTime;
+    }, 900);
+
+    fallbackFrameTimer = window.setInterval(() => {
+      if (
+        capturedFrame ||
+        progress > 0.006 ||
+        !video.paused ||
+        !filmFrame?.classList.contains("is-awaiting-playback") ||
+        video.readyState < HTMLMediaElement.HAVE_METADATA ||
+        !Number.isFinite(video.duration) ||
+        video.duration <= 0
+      ) {
+        return;
+      }
+      video.currentTime = (video.currentTime + 0.12) % video.duration;
+    }, 120);
     startLivePrint();
 
     const reducedMotion = window.matchMedia(
@@ -1561,6 +1626,12 @@ export default function SensorTransformation() {
       if (animationFrame) window.cancelAnimationFrame(animationFrame);
       if (cycleTimer) window.clearTimeout(cycleTimer);
       if (playbackCheckTimer) window.clearTimeout(playbackCheckTimer);
+      if (playbackWatchTimer) window.clearInterval(playbackWatchTimer);
+      if (fallbackFrameTimer) window.clearInterval(fallbackFrameTimer);
+      if (initialScrollFrame) window.cancelAnimationFrame(initialScrollFrame);
+      cycleTween?.kill();
+      window.history.scrollRestoration = previousScrollRestoration;
+      gsap.set(canvas, { clearProps: "opacity" });
       filmFrame?.classList.remove("is-awaiting-playback");
       void video.play().catch(() => undefined);
     };

@@ -308,13 +308,13 @@ a {
   }
 
   .printing-film-frame.is-awaiting-playback .printing-film {
-    animation: opening-motion-fallback 4s ease-in-out infinite alternate;
+    animation: opening-motion-fallback 2.8s ease-in-out infinite alternate;
   }
 }
 
 @keyframes opening-motion-fallback {
-  from { transform: scale(1.01) translate3d(-0.5%, 0, 0); }
-  to { transform: scale(1.08) translate3d(1.5%, -1%, 0); }
+  from { transform: scale(1.01) translate3d(-1%, 0.5%, 0); }
+  to { transform: scale(1.12) translate3d(2%, -1.5%, 0); }
 }
 
 @media (prefers-reduced-motion: reduce) {
