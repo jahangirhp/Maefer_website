@@ -315,7 +315,7 @@ a {
   .printing-film {
     width: 100%;
     min-width: 0;
-    object-fit: contain;
+    object-fit: cover;
     object-position: center;
     background: transparent;
   }
