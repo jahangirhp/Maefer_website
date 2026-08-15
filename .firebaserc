@@ -1,0 +1,14 @@
+{
+  "projects": {
+    "default": "amav-system-tester"
+  },
+  "targets": {
+    "amav-system-tester": {
+      "hosting": {
+        "maefer": [
+          "maefer-print-intelligence"
+        ]
+      }
+    }
+  }
+}
