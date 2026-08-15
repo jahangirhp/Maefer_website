@@ -317,6 +317,7 @@ a {
     min-width: 0;
     object-fit: contain;
     object-position: center;
+    background: transparent;
   }
 
   .printing-film-frame {

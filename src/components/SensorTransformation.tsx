@@ -288,6 +288,23 @@ function getMediaPlacement(
   };
 }
 
+function getMediaCoverPlacement(
+  frame: CapturedFrame,
+  width: number,
+  height: number,
+) {
+  const scale = Math.max(width / frame.width, height / frame.height) * 1.08;
+  const renderedWidth = frame.width * scale;
+  const renderedHeight = frame.height * scale;
+
+  return {
+    x: (width - renderedWidth) * 0.5,
+    y: (height - renderedHeight) * 0.5,
+    width: renderedWidth,
+    height: renderedHeight,
+  };
+}
+
 function extractPartSamples(
   samplingCanvas: HTMLCanvasElement,
   count: number,
@@ -984,6 +1001,23 @@ function drawCapturedFrame(
   const placement = getMediaPlacement(frame, width, height);
   context.save();
   context.globalAlpha = alpha;
+
+  if (height > width) {
+    const backdrop = getMediaCoverPlacement(frame, width, height);
+    context.save();
+    context.filter = `blur(${Math.max(12, width * 0.045)}px) brightness(0.5) saturate(1.2)`;
+    context.drawImage(
+      frame.element,
+      backdrop.x,
+      backdrop.y,
+      backdrop.width,
+      backdrop.height,
+    );
+    context.restore();
+    context.fillStyle = "rgba(3, 9, 15, 0.22)";
+    context.fillRect(0, 0, width, height);
+  }
+
   context.drawImage(
     frame.element,
     placement.x,
