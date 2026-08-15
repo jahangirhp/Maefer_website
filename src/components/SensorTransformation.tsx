@@ -1339,6 +1339,7 @@ export default function SensorTransformation() {
     const canvas = canvasRef.current;
     const video = videoRef.current;
     if (!section || !canvas || !video) return;
+    const filmFrame = video.closest<HTMLElement>(".printing-film-frame");
 
     let particles: Particle[] = [];
     let deviceScale = 1;
@@ -1347,13 +1348,30 @@ export default function SensorTransformation() {
     let capturedFrame: CapturedFrame | null = null;
     let sourceSamples: SourceSample[] = [];
     let cycleTimer: number | null = null;
+    let playbackCheckTimer: number | null = null;
     let cycleReturning = false;
 
     const startLivePrint = () => {
+      if (capturedFrame) return;
       video.defaultMuted = true;
       video.muted = true;
       video.playsInline = true;
-      void video.play().catch(() => undefined);
+      video.setAttribute("muted", "");
+      video.setAttribute("playsinline", "");
+      filmFrame?.classList.add("is-awaiting-playback");
+      const startingTime = video.currentTime;
+      void video.play().then(() => {
+        if (playbackCheckTimer) window.clearTimeout(playbackCheckTimer);
+        playbackCheckTimer = window.setTimeout(() => {
+          playbackCheckTimer = null;
+          filmFrame?.classList.toggle(
+            "is-awaiting-playback",
+            video.paused || video.currentTime <= startingTime + 0.05,
+          );
+        }, 700);
+      }).catch(() => {
+        filmFrame?.classList.add("is-awaiting-playback");
+      });
     };
 
     const render = () => {
@@ -1435,7 +1453,7 @@ export default function SensorTransformation() {
         null,
         sourceSamples,
       );
-      void video.play().catch(() => undefined);
+      startLivePrint();
       scheduleRender();
     };
 
@@ -1479,16 +1497,23 @@ export default function SensorTransformation() {
       startLivePrint();
       if (progress > 0.018) captureLivePrint();
     };
+    const onVideoPlaying = () => {
+      filmFrame?.classList.remove("is-awaiting-playback");
+    };
     video.addEventListener("loadeddata", onVideoReady);
     video.addEventListener("canplay", startLivePrint);
+    video.addEventListener("playing", onVideoPlaying);
 
     const onPageShow = () => startLivePrint();
+    const onFirstInteraction = () => startLivePrint();
     const onVisibilityChange = () => {
       if (document.visibilityState === "visible" && !capturedFrame) {
         startLivePrint();
       }
     };
     window.addEventListener("pageshow", onPageShow);
+    window.addEventListener("pointerdown", onFirstInteraction, { passive: true });
+    window.addEventListener("touchstart", onFirstInteraction, { passive: true });
     document.addEventListener("visibilitychange", onVisibilityChange);
     startLivePrint();
 
@@ -1527,11 +1552,16 @@ export default function SensorTransformation() {
       trigger?.kill();
       video.removeEventListener("loadeddata", onVideoReady);
       video.removeEventListener("canplay", startLivePrint);
+      video.removeEventListener("playing", onVideoPlaying);
       window.removeEventListener("pageshow", onPageShow);
+      window.removeEventListener("pointerdown", onFirstInteraction);
+      window.removeEventListener("touchstart", onFirstInteraction);
       document.removeEventListener("visibilitychange", onVisibilityChange);
       window.removeEventListener("resize", resize);
       if (animationFrame) window.cancelAnimationFrame(animationFrame);
       if (cycleTimer) window.clearTimeout(cycleTimer);
+      if (playbackCheckTimer) window.clearTimeout(playbackCheckTimer);
+      filmFrame?.classList.remove("is-awaiting-playback");
       void video.play().catch(() => undefined);
     };
   }, []);

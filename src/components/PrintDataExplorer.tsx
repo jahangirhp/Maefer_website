@@ -311,14 +311,23 @@ function PrintDetail({ job }: { job: PrintJob }) {
           <p>Environmental conditions recorded throughout this print.</p>
         </div>
       </div>
-      <dl className="metadata-grid">
-        <div><dt>Job UUID</dt><dd>{job.metadata.job_uuid}</dd></div>
-        <div><dt>Print started</dt><dd>{formatDate(job.metadata.start_time)}</dd></div>
-        <div><dt>Print completed</dt><dd>{formatDate(job.metadata.end_time)}</dd></div>
-        <div><dt>Duration</dt><dd>{formatDuration(job.metadata.start_time, job.metadata.end_time)}</dd></div>
-        <div><dt>Sensor samples</dt><dd>{job.samples.length.toLocaleString()}</dd></div>
-        <div><dt>Export generated</dt><dd>{formatDate(job.metadata.export_generated_at)}</dd></div>
-      </dl>
+      <details className="part-data-accordion">
+        <summary>
+          <span>
+            <strong>Part data</strong>
+            <small>Job identity, print times, duration, and sensor samples</small>
+          </span>
+          <i aria-hidden="true" />
+        </summary>
+        <dl className="metadata-grid">
+          <div><dt>Job UUID</dt><dd>{job.metadata.job_uuid}</dd></div>
+          <div><dt>Print started</dt><dd>{formatDate(job.metadata.start_time)}</dd></div>
+          <div><dt>Print completed</dt><dd>{formatDate(job.metadata.end_time)}</dd></div>
+          <div><dt>Duration</dt><dd>{formatDuration(job.metadata.start_time, job.metadata.end_time)}</dd></div>
+          <div><dt>Sensor samples</dt><dd>{job.samples.length.toLocaleString()}</dd></div>
+          <div><dt>Export generated</dt><dd>{formatDate(job.metadata.export_generated_at)}</dd></div>
+        </dl>
+      </details>
       <div className="grafana-grid">
         <TimeSeriesPanel samples={job.samples} metric="temperature" title="Temperature Trend" />
         <GaugePanel samples={job.samples} metric="temperature" title="Average Temperature" />
