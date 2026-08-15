@@ -1,4 +1,5 @@
 import SensorTransformation from "./components/SensorTransformation";
+import PrintDataExplorer from "./components/PrintDataExplorer";
 
 function App() {
   return (
@@ -10,6 +11,7 @@ function App() {
           </span>
           <span>MAEFER</span>
         </a>
+        <PrintDataExplorer />
       </header>
 
       <main>
